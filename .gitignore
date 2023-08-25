@@ -1,0 +1,7 @@
+venv*
+*.pyc
+.coverage
+coverage.xml
+.vscode/*
+docs/_build/html/*
+.tox/*

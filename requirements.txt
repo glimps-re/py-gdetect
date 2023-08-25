@@ -1,0 +1,4 @@
+click==8.0.3
+click-default-group==1.2.2
+requests==2.27.1
+rich==11.0.0
