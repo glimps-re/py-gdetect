@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 import os
-from typing import Mapping
 import pytest
 import requests
 from click.testing import CliRunner

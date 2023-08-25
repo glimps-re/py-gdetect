@@ -376,10 +376,6 @@ class Client:
             code = ex.response.status_code
             msg = status_msg(code)
             self.response = Response(None, False, ex, msg)
-        except requests.URLRequired as ex:
-            self.response = Response(None, False, ex, "an URL is required")
-        except requests.TooManyRedirects as ex:
-            self.response = Response(None, False, ex, "too many redirects")
         except requests.Timeout as ex:
             self.response = Response(None, False, ex, "request timed out")
         except requests.exceptions.MissingSchema as ex:
