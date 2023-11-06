@@ -14,6 +14,7 @@ Usage: python -m gdetect [OPTIONS] COMMAND [ARGS]...
 Options:
   --url TEXT    url to GLIMPS Detect API
   --token TEXT  authentication token
+  --password TEXT passord used to extract archive
   --insecure    disable HTTPS check
   --no-cache    submit file even if a result already exists
   --help        Show this message and exit.
@@ -51,8 +52,9 @@ class GDetectContext:
     """
 
     logger: logging.Logger = log.get_logger()
-    url: str = ''  # os.getenv("API_URL")
-    token: str = ''  # os.getenv("API_TOKEN")
+    url: str = ""  # os.getenv("API_URL")
+    token: str = ""  # os.getenv("API_TOKEN")
+    archive_password: str = ""
     insecure: bool = False
     no_cache: bool = False
     client: Client = None
@@ -65,6 +67,7 @@ class GDetectContext:
 @click.group(cls=DefaultGroup, default="send", default_if_no_args=True)
 @click.option("--url", default="", help="url to GLIMPS Detect API")
 @click.option("--token", default="", help="authentication token")
+@click.option("--password", default="", help="password used to extract archive")
 @click.option("--insecure", is_flag=True, help="bypass HTTPS check")
 @click.option(
     "--no-cache",
@@ -78,9 +81,10 @@ def gdetect(
     ctx: click.Context = None,
     url: str = "",
     token: str = "",
+    password: str = "",
     insecure: bool = False,
     nocache: bool = False,
-    debug: bool = False
+    debug: bool = False,
 ):
     """CLI for GLIMPS detect"""
     try:
@@ -97,6 +101,8 @@ def gdetect(
         obj.token = token
     if url != "":
         obj.url = url
+    if password != "":
+        obj.archive_password = password
 
     try:
         obj.client = Client(url=obj.url, token=obj.token)
@@ -130,6 +136,7 @@ def send(
             bypass_cache=obj.no_cache,
             tags=tag,
             description=description,
+            archive_password=obj.archive_password,
         )
         console.print(uuid)
 
@@ -192,6 +199,7 @@ def waitfor(
             timeout=timeout,
             tags=tag,
             description=description,
+            archive_password=obj.archive_password,
         )
         rich.print_json(data=result)
         if retrieve_urls:
@@ -222,7 +230,6 @@ def print_urls(obj: GDetectContext = None):
 
 
 def handleGDetectError(exc: GDetectError):
-
     if isinstance(exc, NoAuthenticateToken):
         error_console.print("Error: Missing argument 'TOKEN'")
     elif isinstance(exc, BadAuthenticationToken):
