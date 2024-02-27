@@ -63,8 +63,8 @@ class Client:
     def __init__(self, url: str, token: str):
         self.base_url = url
         self.url = urllib.parse.urljoin(url, BASE_ENDPOINT)
-        self.token : str = token
-        self._verify : bool = True
+        self.token: str = token
+        self._verify: bool = True
         self.response = None
         # check inputs
         self._check_token()
@@ -86,6 +86,7 @@ class Client:
         bypass_cache: bool = False,
         tags: tuple = (),
         description: str = None,
+        archive_password: str = None,
     ) -> str:
         """Push a file to API endpoint.
 
@@ -95,6 +96,7 @@ class Client:
                 If True, the file is analyzed, even if a result already exists.
             tags (tuple, optional): If filled, the file will be tagged with those tags.
             description (str, optional): If filled, the description will be filled in on the file.
+            archive_password (str, optional) : If filled, the password used to extract archive
 
         Returns:
             uuid (str): unique id of analysis
@@ -110,6 +112,7 @@ class Client:
                     "bypass-cache": f"{bool(bypass_cache)}",
                     "tags": ",".join(tags),
                     "description": description,
+                    "archive_password": archive_password,
                 }
                 files = {"file": (pathlib.Path(filename).name, finput)}
                 path = f"{self.url}/submit"
@@ -206,6 +209,7 @@ class Client:
         timeout: int = 180,
         tags: tuple = (),
         description: str = None,
+        archive_password: str = None,
     ) -> object:
         """Send a file to GLIMPS Detect and wait for a result.
 
@@ -219,6 +223,7 @@ class Client:
             timeout (int): The maximum time execution of this method in seconds.
             tags (tuple, optional): If filled, the file will be tagged with those tags.
             description (str, optional): If filled, the description will be filled in on the file.
+            archive_password (str, optional) : If filled, the password used to extract archive
 
         Returns:
             result (object): The json-encoded content of a response, if any.
@@ -234,6 +239,7 @@ class Client:
             bypass_cache=bypass_cache,
             tags=tags,
             description=description,
+            archive_password=archive_password,
         )
 
         # get result

@@ -2,7 +2,7 @@
 
 a Python client and a library for GLIMPS Gmalware detect.
 
-Gdetect is a solution from GLIMPS *Inc.* for a better detection of malware. Contact us at contact@glimps.re for more information !  
+Gdetect is a solution from GLIMPS *Inc.* for a better detection of malware. Contact us at <contact@glimps.re> for more information !  
 
 ## Description
 
@@ -39,11 +39,12 @@ You can use *gdetect* in your shell like this:
 Usage: python -m gdetect [OPTIONS] COMMAND [ARGS]...
 
 Options:
-  --url TEXT    url to GLIMPS Detect API
-  --token TEXT  authentication token
-  --insecure    disable HTTPS check
-  --no-cache    submit file even if a result already exists
-  --help        Show this message and exit.
+  --url TEXT      url to GLIMPS Detect API
+  --token TEXT    authentication token
+  --password TEXT password used to extract archive
+  --insecure      disable HTTPS check
+  --no-cache      submit file even if a result already exists
+  --help          Show this message and exit.
 
 Commands:
   send*    send file to API.

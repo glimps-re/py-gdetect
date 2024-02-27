@@ -132,6 +132,17 @@ def test_push_quota_exceeded(monkeypatch):
     assert client.response.message == "too many requests"
 
 
+def test_push_with_password(monkeypatch):
+    """Test that push with pwd is working"""
+    monkeypatch.setattr(requests, "request", mock_request)
+    client = get_api_client()
+    id_file = client.push(
+        TEST_FILE,
+        archive_password="toto"
+    )
+    assert isinstance(id_file, str)
+
+
 def test_retrieve_analysis_result_by_uuid(
     monkeypatch, uuid="eff8b042-3e70-4ea3-8f83-f9e67c217d3f"
 ):
@@ -205,6 +216,18 @@ def test_send_binary_and_wait_result_at_once(monkeypatch):
     monkeypatch.setattr(requests, "request", mock_request)
     client = get_api_client()
     result = client.waitfor(TEST_FILE)
+    if "is_malware" not in result:
+        pytest.fail("result is not the expected JSON")
+
+
+def test_send_and_wait_with_password(monkeypatch):
+    """Test that waitfor with pwd is working"""
+    monkeypatch.setattr(requests, "request", mock_request)
+    client = get_api_client()
+    result = client.waitfor(
+        TEST_FILE,
+        archive_password="toto"
+    )
     if "is_malware" not in result:
         pytest.fail("result is not the expected JSON")
 

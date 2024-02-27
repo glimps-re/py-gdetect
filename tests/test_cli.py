@@ -71,6 +71,16 @@ def test_send_file_with_description(runner: CliRunner):
     assert len(result.output) > 35
 
 
+def test_send_file_with_password(runner: CliRunner):
+    """Test file sending protected archive with password."""
+    result = runner.invoke(
+        gdetect,
+        f'--insecure --password "toto" send {TEST_FILE}',
+    )
+    assert result.exit_code == 0
+    assert len(result.output) > 35
+
+
 def test_get_existing_result_by_uuid(
     runner: CliRunner, uuid="9d488d01-23d5-4b9f-894e-c920ea732603"
 ):
@@ -108,5 +118,15 @@ def test_send_as_default_command(runner: CliRunner):
 def test_send_binary_and_wait_for_result(runner: CliRunner):
     """Test binary sending waiting for the result."""
     result = runner.invoke(gdetect, f"--insecure --no-cache waitfor {TEST_FILE}")
+    assert result.exit_code == 0
+    assert len(result.output) > 35
+
+
+def test_waitfor_file_with_password(runner: CliRunner):
+    """Test file sending waiting for protected archive with password."""
+    result = runner.invoke(
+        gdetect,
+        f'--insecure --no-cache --password "toto" waitfor {TEST_FILE}',
+    )
     assert result.exit_code == 0
     assert len(result.output) > 35
