@@ -37,7 +37,14 @@ def runner():
 def test_empty_run(runner: CliRunner):
     """Test empty run of the cli."""
     result = runner.invoke(gdetect, [""])
-    assert result.exit_code == 0
+    assert result.exit_code == 2
+
+
+def test_send_file_no_token(runner: CliRunner, monkeypatch):
+    """Test file sending."""
+    monkeypatch.setattr(os, "getenv", lambda x: "")
+    result = runner.invoke(gdetect, f"--insecure send {TEST_FILE}")
+    assert result.exit_code == 1
 
 
 def test_send_file(runner: CliRunner):

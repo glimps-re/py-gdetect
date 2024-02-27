@@ -10,38 +10,60 @@ All other exceptions are for internal use.
 class GDetectError(Exception):
     """global error for external return"""
 
+    message = ""
 
-class NoAuthenticateToken(GDetectError):
-    """no token to authentication exists"""
+    def __init__(self, message: str = ""):
+        self.message = message
 
-
-class BadAuthenticationToken(GDetectError):
-    """given token has bad format"""
-
-
-class NoURL(GDetectError):
-    """no URL to API found"""
+    def __str__(self) -> str:
+        if self.message != "":
+            return f"{self.__doc__}: {self.message}"
+        return self.__doc__
 
 
-class UnauthorizedAccess(GDetectError):
-    """access to API is unauthorized"""
+class NoAuthenticateTokenError(GDetectError):
+    """No authentication token provided"""
 
 
-class BadUUID(GDetectError):
+class BadAuthenticationTokenError(GDetectError):
+    """Bad authentication token provided"""
+
+
+class NoURLError(GDetectError):
+    """No URL to API provided"""
+
+
+class UnauthorizedAccessError(GDetectError):
+    """Access to API is unauthorized"""
+
+
+class BadUUIDError(GDetectError):
     """given UUID is wrong"""
 
 
-class BadSHA256(GDetectError):
+class BadSHA256Error(GDetectError):
     """given SHA256 hash is wrong"""
 
 
-class MissingToken(GDetectError):
+class MissingTokenError(GDetectError):
     """Missing token field in result"""
 
 
-class MissingSID(GDetectError):
+class MissingSIDError(GDetectError):
     """Missing file sid field in result"""
 
 
-class MissingResponse(GDetectError):
+class MissingResponseError(GDetectError):
     """Missing response from api client"""
+
+
+class ResultNotFoundError(GDetectError):
+    """Result not found"""
+
+
+class TooManyRequestError(GDetectError):
+    """Too many requests"""
+
+
+class InternalServerError(GDetectError):
+    """Internal server error"""

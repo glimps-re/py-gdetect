@@ -35,16 +35,43 @@ Usage examples:
 import pathlib
 import time
 import urllib.parse
-from dataclasses import dataclass
+import re
 
 import requests
 import urllib3
 
-from . import exceptions, log
 
-logger = log.get_logger()
+from requests.exceptions import JSONDecodeError
+
+
+from .log import get_logger
+from .exceptions import (
+    BadAuthenticationTokenError,
+    GDetectError,
+    BadSHA256Error,
+    BadUUIDError,
+    InternalServerError,
+    MissingSIDError,
+    MissingTokenError,
+    NoAuthenticateTokenError,
+    ResultNotFoundError,
+    TooManyRequestError,
+    UnauthorizedAccessError,
+)
+from .stream import StreamReader
+
+logger = get_logger()
 
 BASE_ENDPOINT = "/api/lite/v2"
+
+UUID_PATTERN = re.compile(
+    r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+)
+SHA256_PATTERN = re.compile(r"[0-9a-f]{64}")
+TOKEN_PATTERN = re.compile(
+    r"[0-9a-f]{8}-[0-9a-f]{8}-[0-9a-f]{8}-[0-9a-f]{8}-[0-9a-f]{8}"
+)
+GDETECT_USER_AGENT = "py-gdetect/0.3.0"
 
 
 class Client:
@@ -65,7 +92,7 @@ class Client:
         self.url = urllib.parse.urljoin(url, BASE_ENDPOINT)
         self.token: str = token
         self._verify: bool = True
-        self.response = None
+        self.timeout: float = 30.0
         # check inputs
         self._check_token()
 
@@ -79,6 +106,66 @@ class Client:
         self._verify = enable_check
 
     verify = property(_get_verify, _set_verify)
+
+    def push_reader(
+        self,
+        filename: str,
+        reader: StreamReader,
+        bypass_cache: bool = False,
+        tags: tuple = (),
+        description: str = None,
+        archive_password: str = None,
+    ) -> str:
+        """Push a file to API endpoint (using reader).
+
+        Args:
+            filename (str): Fullpath of binary.
+            bypass_cache (bool, optional):
+                If True, the file is analyzed, even if a result already exists.
+            tags (tuple, optional): If filled, the file will be tagged with those tags.
+            description (str, optional): If filled, the description will be filled in on the file.
+            archive_password (str, optional) : If filled, the password used to extract archive
+
+        Returns:
+            uuid (str): unique id of analysis
+
+        Raises:
+            GDetectError: GMalware server returned an error.
+            OSError: there was an error with the input file.
+            requests.RequestException: there was an error reaching GMalware server
+        """
+
+        files = {"file": (filename, reader)}
+        # prepare request
+        params = {
+            "bypass-cache": f"{bool(bypass_cache)}",
+            "tags": ",".join(tags),
+            "description": description,
+            "archive_password": archive_password,
+        }
+        path = f"{self.url}/submit"
+
+        # send request
+        resp = self._request(
+            "post",
+            path,
+            params=params,
+            files=files,
+        )
+
+        # parse response and return UUID
+        if not resp.ok:
+            logger.error("%s: %s", resp.message, resp.error)
+            raise GDetectError
+        try:
+            response = resp.json()
+        except JSONDecodeError as exc:
+            raise GDetectError("invalid GLIMPS Detect response") from exc
+        if not isinstance(response, dict):
+            raise GDetectError("invalid GLIMPS Detect response")
+        if "uuid" not in response:
+            raise GDetectError("invalid GLIMPS Detect response")
+        return response["uuid"]
 
     def push(
         self,
@@ -102,45 +189,20 @@ class Client:
             uuid (str): unique id of analysis
 
         Raises:
-            exceptions.GDetectError: An error occurs. Check :class:`~Api.Response` for details.
+            GDetectError: GMalware server returned an error.
+            OSError: there was an error with the input file.
+            requests.RequestException: there was an error reaching GMalware server
         """
 
-        try:
-            with open(filename, "rb") as finput:
-                # prepare request
-                params = {
-                    "bypass-cache": f"{bool(bypass_cache)}",
-                    "tags": ",".join(tags),
-                    "description": description,
-                    "archive_password": archive_password,
-                }
-                files = {"file": (pathlib.Path(filename).name, finput)}
-                path = f"{self.url}/submit"
-
-                # send request
-                req = self._req(
-                    "post",
-                    path,
-                    headers={"X-Auth-Token": self.token},
-                    params=params,
-                    files=files,
-                    verify=self.verify,
-                )
-        except Exception as err:
-            err_msg = "unable to read given file"
-            logger.error("%s: %s", err_msg, err)
-            self.response = Response(None, False, err, err_msg)
-            raise exceptions.GDetectError
-
-        # send return
-        if req.ok:
-            resp = req.response.json()
-            if "uuid" in resp:
-                return resp["uuid"]
-            logger.error("something went wrong: %s", req.message)
-            raise exceptions.GDetectError
-        logger.error("%s: %s", req.message, req.error)
-        raise exceptions.GDetectError
+        with open(filename, "rb") as reader:
+            return self.push_reader(
+                pathlib.Path(filename).name,
+                reader,
+                bypass_cache,
+                tags,
+                description,
+                archive_password,
+            )
 
     def get_by_sha256(self, sha256: str) -> dict:
         """_summary_
@@ -161,15 +223,9 @@ class Client:
         path = f"{self.url}/search/{sha256}"
 
         # send request
-        req = self._req(
-            "get", path, headers={"X-Auth-Token": self.token}, verify=self.verify
-        )
+        response = self._request("get", path)
 
-        # send return
-        if req.ok:
-            return req.response.json()
-        logger.error("%s: %s", req.message, req.error)
-        raise exceptions.GDetectError
+        return response.json()
 
     def get_by_uuid(self, uuid: str) -> dict:
         """Retrieve analysis result
@@ -191,15 +247,13 @@ class Client:
         path = f"{self.url}/results/{uuid}"
 
         # send request
-        req = self._req(
-            "get", path, headers={"X-Auth-Token": self.token}, verify=self.verify
+        response = self._request(
+            "get",
+            path,
+            headers={"X-Auth-Token": self.token},
         )
 
-        # send return
-        if req.ok:
-            return req.response.json()
-        logger.error("%s: %s", req.message, req.error)
-        raise exceptions.GDetectError
+        return response.json()
 
     def waitfor(
         self,
@@ -214,7 +268,7 @@ class Client:
         """Send a file to GLIMPS Detect and wait for a result.
 
         This function is an 'all-in-one' for sending and getting result.
-        The pull time is arbitrary set to 5 seconds, and timout to 3 minutes.
+        The pull time is arbitrary set to 5 seconds, and timeout to 3 minutes.
 
         Args:
             filename (str): Fullpath of binary.
@@ -231,11 +285,55 @@ class Client:
         Raises:
             exceptions.GDetectError: An error occurs. Check :class:`~Api.Response` for details.
         """
+        with open(filename, "rb") as reader:
+            return self.waitfor_reader(
+                pathlib.Path(filename).name,
+                reader,
+                bypass_cache,
+                pull_time,
+                timeout,
+                tags,
+                description,
+                archive_password,
+            )
 
+    def waitfor_reader(
+        self,
+        filename: str,
+        reader: StreamReader,
+        bypass_cache: bool = False,
+        pull_time: int = 5,
+        timeout: int = 180,
+        tags: tuple = (),
+        description: str = None,
+        archive_password: str = None,
+    ) -> object:
+        """Send a file to GLIMPS Detect and wait for a result.
+
+        This function is an 'all-in-one' for sending and getting result.
+        The pull time is arbitrary set to 5 seconds, and timeout to 3 minutes.
+
+        Args:
+            filename (str): binary name.
+            reader (StreamReader): a reader for the binary
+            bypass_cache (bool): If True, the file is analyzed, even if a result already exists.
+            pull_time (int): The time to wait (in seconds) between each requests to get a result.
+            timeout (int): The maximum time execution of this method in seconds.
+            tags (tuple, optional): If filled, the file will be tagged with those tags.
+            description (str, optional): If filled, the description will be filled in on the file.
+            archive_password (str, optional) : If filled, the password used to extract archive
+
+        Returns:
+            result (object): The json-encoded content of a response, if any.
+
+        Raises:
+            exceptions.GDetectError: An error occurs. Check :class:`~Api.Response` for details.
+        """
         start_time = time.time()
         # push file, get uuid
-        uuid = self.push(
+        uuid = self.push_reader(
             filename,
+            reader,
             bypass_cache=bypass_cache,
             tags=tags,
             description=description,
@@ -248,11 +346,10 @@ class Client:
             if result["done"]:
                 return result
             if time.time() - start_time > timeout:
-                self.response = Response(None, False, TimeoutError, "timeout reached")
-                raise exceptions.GDetectError
+                raise GDetectError
             time.sleep(pull_time)
 
-    def extract_url_token_view(self) -> str:
+    def extract_url_token_view(self, resp: dict) -> str:
         """Extract url token view from response.
 
         Raises:
@@ -262,17 +359,14 @@ class Client:
         Returns:
             str: token view url
         """
-        try:
-            token = self.response.response.json()["token"]
-            return urllib.parse.urljoin(
-                self.base_url, f"/expert/en/analysis-redirect/{token}"
-            )
-        except KeyError as exc:
-            raise exceptions.MissingToken from exc
-        except AttributeError as exc:
-            raise exceptions.MissingResponse from exc
+        token = resp.get("token", "")
+        if token == "":
+            raise MissingTokenError()
+        return urllib.parse.urljoin(
+            self.base_url, f"/expert/en/analysis-redirect/{token}"
+        )
 
-    def extract_expert_url(self) -> str:
+    def extract_expert_url(self, resp: dict) -> str:
         """Extract expert view from response.
 
         Raises:
@@ -282,69 +376,31 @@ class Client:
         Returns:
             str: expert analysis view url
         """
-        try:
-            sid = self.response.response.json()["sid"]
-            return urllib.parse.urljoin(
-                self.base_url, f"/expert/en/analysis/advanced/{sid}"
-            )
-        except KeyError as exc:
-            raise exceptions.MissingToken from exc
-        except AttributeError as exc:
-            raise exceptions.MissingResponse from exc
+        sid = resp.get("sid", "")
+        if sid == "":
+            raise MissingSIDError()
+        return urllib.parse.urljoin(
+            self.base_url, f"/expert/en/analysis/advanced/{sid}"
+        )
 
-    def _check_uuid(self, uuid):
-        if len(uuid) == 0:
-            logger.error("UUID is empty")
-            self.response = Response(None, False, exceptions.BadUUID(), "UUID is empty")
-            raise exceptions.GDetectError
+    def _check_uuid(self, uuid: str):
+        if UUID_PATTERN.match(uuid):
+            return
+        raise BadUUIDError
 
     def _check_sha256(self, sha256):
-        if len(sha256) == 0:
-            logger.error("SHA256 is empty")
-            self.response = Response(
-                None, False, exceptions.BadSHA256(), "SHA256 is empty"
-            )
-            raise exceptions.GDetectError
+        if not SHA256_PATTERN.match(sha256):
+            raise BadSHA256Error
 
     def _check_token(self):
-        token = self.token
-        if not token:
-            logger.error("no token given")
-            self.response = Response(
-                None, False, exceptions.NoAuthenticateToken(), "no token given"
-            )
-            raise exceptions.NoAuthenticateToken
-        if not isinstance(token, str):
-            logger.error("token must be type string")
-            self.response = Response(
-                None,
-                False,
-                exceptions.BadAuthenticationToken(),
-                "token must be type string",
-            )
-            raise exceptions.BadAuthenticationToken
-        if len(token) != 44:
-            logger.error("token have wrong length")
-            self.response = Response(
-                None,
-                False,
-                exceptions.BadAuthenticationToken(),
-                "token have wrong length",
-            )
-            raise exceptions.BadAuthenticationToken
-        authorized = "0123456789abcdef-"
-        for char in token:
-            if char not in authorized:
-                logger.error("forbidden character inside token")
-                self.response = Response(
-                    None,
-                    False,
-                    exceptions.BadAuthenticationToken(),
-                    "forbidden character inside token",
-                )
-                raise exceptions.BadAuthenticationToken
+        if self.token is None or self.token == "":
+            raise NoAuthenticateTokenError()
+        if not isinstance(self.token, str):
+            raise BadAuthenticationTokenError("token must a be string")
+        if not TOKEN_PATTERN.match(self.token):
+            raise BadAuthenticationTokenError("bad token format")
 
-    def _req(self, method: str, url: str, **kwargs: str):
+    def _request(self, method: str, url: str, **kwargs) -> requests.Response:
         """Process a request to URL with given method and params.
 
         This function execute the request to the URL with `requests` library.
@@ -359,73 +415,34 @@ class Client:
         Returns:
             Response: a :class:`~Response` object.
         """
-
-        try:
-            # get request timeout
-            timeout = kwargs.pop("timeout", 30.0)
-
-            req = requests.request(method, url, timeout=timeout, **kwargs)
-            code = req.status_code
-            if code != 200:
-                msg = status_msg(code)
-                self.response = Response(None, False, None, msg)
-            else:
-                self.response = Response(req, True, None, "")
-        except requests.ConnectionError as ex:
-            self.response = Response(
-                None,
-                False,
-                ex,
-                "unable to connect to the server",
-            )
-        except requests.HTTPError as ex:
-            code = ex.response.status_code
-            msg = status_msg(code)
-            self.response = Response(None, False, ex, msg)
-        except requests.Timeout as ex:
-            self.response = Response(None, False, ex, "request timed out")
-        except requests.exceptions.MissingSchema as ex:
-            self.response = Response(
-                None, False, ex, "the URL schema (e.g. http or https) is missing"
-            )
-        except requests.exceptions.InvalidSchema as ex:
-            self.response = Response(
-                None, False, ex, "schema (e.g. http or https) is invalid"
-            )
-        except requests.exceptions.InvalidURL as ex:
-            self.response = Response(
-                None, False, ex, "the URL provided somehow invalid"
-            )
-        except Exception as ex:
-            self.response = Response(None, False, ex, "undefined error")
-
-        return self.response
+        # get request timeout
+        timeout = kwargs.pop("timeout", self.timeout)
+        headers = kwargs.pop("headers", {})
+        # set auth token if not provided
+        headers["X-Auth-Token"] = headers.get("X-Auth-Token", self.token)
+        headers["User-Agent"] = GDETECT_USER_AGENT
+        resp = requests.request(
+            method, url, timeout=timeout, verify=self.verify, headers=headers, **kwargs
+        )
+        code = resp.status_code
+        if code != 200:
+            raise compute_exception_from_response(resp)
+        return resp
 
 
-@dataclass
-class Response:
-    """A consistent return for the api class
-
-    Attributes:
-        response: The requests.Response object if no error. Otherwise, it's None.
-        ok: Set at `True` if no exceptions handling.
-        error: Original exception if occurs. Otherwise, it's None.
-        message: A friendly message for final client (like console or logging).
-    """
-
-    response: requests.Response
-    ok: bool
-    error: Exception
-    message: str
+HTTPExceptions = {
+    401: UnauthorizedAccessError,
+    403: UnauthorizedAccessError,
+    404: ResultNotFoundError,
+    429: TooManyRequestError,
+    500: InternalServerError,
+}
 
 
-def status_msg(code):
-    """return explicit message for given HTTP error code"""
-    return {
-        400: "invalid file submitted",
-        401: "invalid token",
-        403: "insufficient user permissions",
-        404: "resource doesn't exist",
-        429: "too many requests",
-        500: "unexpected error from server",
-    }.get(code, "unexpected HTTP error")
+def compute_exception_from_response(resp: requests.Response) -> GDetectError:
+    exc = HTTPExceptions.get(resp.status_code, GDetectError)
+    try:
+        msg = resp.json()
+        return exc(msg.get('error', ''))
+    except JSONDecodeError:
+        return exc

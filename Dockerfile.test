@@ -1,0 +1,21 @@
+ARG PythonVersion=3.9
+FROM python:${PythonVersion}-slim
+
+USER root
+
+COPY . /gdetect
+# COPY pip.conf /etc/pip.conf
+
+WORKDIR /gdetect
+
+RUN pip install pylint pytest pytest-cov
+RUN pip install .
+
+ENV API_TOKEN="978abce3-42af0258-c5dee9ad-85e5fb5e-a249b8a2"
+ENV API_URL="http://localhost"
+
+# Running code quality tools
+RUN pylint --exit-zero src/gdetect
+
+# UT generation on build, ready for the CI
+RUN python3 -m pytest --cov=gdetect tests/ --junitxml=junit.xml && coverage xml

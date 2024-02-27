@@ -32,20 +32,19 @@ def get_api_client():
 def test_bad_url():
     """Test client setup with no url"""
 
-    with pytest.raises(exceptions.GDetectError):
+    with pytest.raises(Exception):
         client = Client("tcp://gmalware.fr", TEST_TOKEN)
         client.push(
             TEST_FILE,
             tags="elf",
             description="this is an elf malware.",
         )
-    assert client.response.message == "the URL schema (e.g. http or https) is missing"
 
 
 def test_no_token_given(monkeypatch):
     """Test client set up with no token."""
     monkeypatch.setattr(requests, "request", mock_request)
-    with pytest.raises(exceptions.NoAuthenticateToken):
+    with pytest.raises(exceptions.NoAuthenticateTokenError):
         client = Client(TEST_URL, "")
         client.push(
             TEST_FILE,
@@ -64,7 +63,7 @@ def test_int_token_given(monkeypatch):
             tags="elf",
             description="this is an elf malware.",
         )
-    with pytest.raises(exceptions.BadAuthenticationToken):
+    with pytest.raises(exceptions.BadAuthenticationTokenError):
         client = Client(TEST_URL, 1)
         client.push(
             TEST_FILE,
@@ -76,7 +75,7 @@ def test_int_token_given(monkeypatch):
 def test_bad_length_token_given(monkeypatch):
     """Test client set up with bad length token (!=44)."""
     monkeypatch.setattr(requests, "request", mock_request)
-    with pytest.raises(exceptions.BadAuthenticationToken):
+    with pytest.raises(exceptions.BadAuthenticationTokenError):
         client = Client(TEST_URL, "89abtacf-9458e74b")
         client.push(
             TEST_FILE,
@@ -88,7 +87,7 @@ def test_bad_length_token_given(monkeypatch):
 def test_bad_char_token_given(monkeypatch):
     """Test client set up with bad char inside it (!= 0123456789abcdef-)."""
     monkeypatch.setattr(requests, "request", mock_request)
-    with pytest.raises(exceptions.BadAuthenticationToken):
+    with pytest.raises(exceptions.BadAuthenticationTokenError):
         client = Client(TEST_URL, "ttabtacf-9458e74b-06ca9e93-a285e90c-0a6bceb6")
         client.push(
             TEST_FILE,
@@ -100,10 +99,9 @@ def test_bad_char_token_given(monkeypatch):
 def test_push_no_file(monkeypatch):
     """Expected a none result (+logging)"""
     monkeypatch.setattr(requests, "request", mock_request)
-    with pytest.raises(exceptions.GDetectError):
+    with pytest.raises(FileNotFoundError):
         client = get_api_client()
         client.push("")
-    assert client.response.error.__class__ == FileNotFoundError
 
 
 def test_push_elf_malware(monkeypatch):
@@ -122,14 +120,14 @@ def test_push_elf_malware(monkeypatch):
 def test_push_quota_exceeded(monkeypatch):
     """Expected an error 429"""
     monkeypatch.setattr(requests, "request", mock_request_too_many_request)
-    with pytest.raises(exceptions.GDetectError):
+    with pytest.raises(exceptions.TooManyRequestError):
         client = get_api_client()
         client.push(
             TEST_FILE,
             tags="elf",
             description="this is an elf malware.",
         )
-    assert client.response.message == "too many requests"
+    # assert client.response.message == "too many requests"
 
 
 def test_push_with_password(monkeypatch):
@@ -169,22 +167,20 @@ def test_search_sha256_empty(monkeypatch, sha256=""):
     """Test search with empty sha26"""
     monkeypatch.setattr(requests, "request", mock_request)
     client = get_api_client()
-    with pytest.raises(exceptions.GDetectError):
+    with pytest.raises(exceptions.BadSHA256Error):
         client = get_api_client()
         client.get_by_sha256(sha256)
-    assert client.response.message == "SHA256 is empty"
 
 
 def test_search_sha256_inexisting(
     monkeypatch,
     sha256="aaaad6e51ef6d0bc8c8c1903a24c22a090516afa6f3b4db6e4b3e6dd44462a99",
 ):
-    """Test file research with inexisting sha256"""
+    """Test file research with non existing sha256"""
     monkeypatch.setattr(requests, "request", mock_request_nonexisting_resource)
-    with pytest.raises(exceptions.GDetectError):
+    with pytest.raises(exceptions.ResultNotFoundError):
         client = get_api_client()
         client.get_by_sha256(sha256)
-    assert client.response.message == "resource doesn't exist"
 
 
 def test_search_sha256_invalid(
@@ -193,10 +189,9 @@ def test_search_sha256_invalid(
 ):
     """Test file research with invalid sha256"""
     monkeypatch.setattr(requests, "request", mock_request_invalid_file)
-    with pytest.raises(exceptions.GDetectError):
+    with pytest.raises(exceptions.BadSHA256Error):
         client = get_api_client()
         client.get_by_sha256(sha256)
-    assert client.response.message == "invalid file submitted"
 
 
 def test_retrieve_analysis_result_by_sha256(
@@ -236,12 +231,12 @@ def test_extract_url_token_view(monkeypatch):
     """Test url token view extraction"""
     monkeypatch.setattr(requests, "request", mock_request)
     client = get_api_client()
-    client.push(
+    result = client.waitfor(
         TEST_FILE,
         tags="elf",
         description="this is an elf malware.",
     )
-    url = client.extract_url_token_view()
+    url = client.extract_url_token_view(result)
     assert url == urllib.parse.urljoin(
         client.base_url,
         f"/expert/en/analysis-redirect/{mock_request().json()['token']}",
@@ -252,12 +247,12 @@ def test_extract_url_expert_view(monkeypatch):
     """Test url token view extraction"""
     monkeypatch.setattr(requests, "request", mock_request)
     client = get_api_client()
-    client.push(
+    result = client.waitfor(
         TEST_FILE,
         tags="elf",
         description="this is an elf malware.",
     )
-    url = client.extract_expert_url()
+    url = client.extract_expert_url(result)
     assert url == urllib.parse.urljoin(
         client.base_url,
         f"/expert/en/analysis/advanced/{mock_request().json()['sid']}",

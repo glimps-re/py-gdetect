@@ -6,3 +6,5 @@ coverage.xml
 docs/_build/html/*
 .tox/*
 src/gdetect.egg-info/*
+build/*
+junit.xml

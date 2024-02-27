@@ -27,18 +27,26 @@ Commands:
 """
 
 from dataclasses import dataclass
+from functools import wraps
 import logging
 import os
-from typing import List
+from typing import List, Optional
 
 import click
 import rich
 from click_default_group import DefaultGroup
 from rich.console import Console
+from requests.exceptions import MissingSchema
 
-from . import exceptions, log
+from . import log
 from .api import Client
-from .exceptions import GDetectError, NoAuthenticateToken, BadAuthenticationToken
+from .exceptions import (
+    GDetectError,
+    MissingSIDError,
+    MissingTokenError,
+    NoAuthenticateTokenError,
+    BadAuthenticationTokenError,
+)
 
 # initialize rich Console for pretty print
 console = Console()
@@ -64,7 +72,20 @@ class GDetectContext:
         self.token = os.getenv("API_TOKEN")
 
 
-@click.group(cls=DefaultGroup, default="send", default_if_no_args=True)
+def catch_exceptions(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except MissingSchema:
+            raise click.ClickException("Invalid or no URL provided to reach GMalware detect API")
+        except GDetectError as e:
+            raise click.ClickException(e)
+
+    return wrapper
+
+
+@click.group(cls=DefaultGroup, default="", default_if_no_args=False)
 @click.option("--url", default="", help="url to GLIMPS Detect API")
 @click.option("--token", default="", help="authentication token")
 @click.option("--password", default="", help="password used to extract archive")
@@ -77,6 +98,7 @@ class GDetectContext:
 )
 @click.option("--debug", is_flag=True, help="print debug strings")
 @click.pass_context
+@catch_exceptions
 def gdetect(
     ctx: click.Context = None,
     url: str = "",
@@ -87,10 +109,7 @@ def gdetect(
     debug: bool = False,
 ):
     """CLI for GLIMPS detect"""
-    try:
-        ctx.ensure_object(GDetectContext)
-    except Exception as exc:
-        print(exc)
+    ctx.ensure_object(GDetectContext)
 
     obj: GDetectContext = ctx.obj
 
@@ -104,10 +123,7 @@ def gdetect(
     if password != "":
         obj.archive_password = password
 
-    try:
-        obj.client = Client(url=obj.url, token=obj.token)
-    except GDetectError as exc:
-        return handleGDetectError(exc)
+    obj.client = Client(url=obj.url, token=obj.token)
 
     if insecure:
         error_console.print("untrusted: SSL verification disabled")
@@ -123,6 +139,7 @@ def gdetect(
 @click.argument("filename")
 @click.option("-t", "--tag", multiple=True, help="tags to assign to the file.")
 @click.option("-d", "--description", help="description of the file.")
+@catch_exceptions
 def send(
     obj: GDetectContext = None,
     filename: str = "",
@@ -130,50 +147,39 @@ def send(
     description: str = "",
 ):
     """send file to API."""
-    try:
-        uuid = obj.client.push(
-            filename,
-            bypass_cache=obj.no_cache,
-            tags=tag,
-            description=description,
-            archive_password=obj.archive_password,
-        )
-        console.print(uuid)
-
-    except GDetectError as exc:
-        handleGDetectError(exc)
-        # print_response_error_msg(ctx.obj["client"].response.message)
+    uuid = obj.client.push(
+        filename,
+        bypass_cache=obj.no_cache,
+        tags=tag,
+        description=description,
+        archive_password=obj.archive_password,
+    )
+    console.print(uuid)
 
 
 @gdetect.command("get")
 @click.pass_obj
 @click.argument("uuid")
 @click.option("--retrieve-urls", is_flag=True, default=False, help="retrieve urls")
+@catch_exceptions
 def get(obj: GDetectContext = None, uuid: str = "", retrieve_urls: bool = False):
     """get result for given uuid."""
-    try:
-        result = obj.client.get_by_uuid(uuid)
-        rich.print_json(data=result)
-        if retrieve_urls:
-            print_urls()
-
-    except GDetectError as exc:
-        handleGDetectError(exc)
-
+    result = obj.client.get_by_uuid(uuid)
+    rich.print(result)
+    if retrieve_urls:
+        print_urls(result)
 
 @gdetect.command("search")
 @click.argument("sha256")
 @click.option("--retrieve-urls", is_flag=True, help="retrieve urls")
 @click.pass_obj
+@catch_exceptions
 def search(obj: GDetectContext = None, sha256: str = "", retrieve_urls: bool = False):
     """search a file with given sha256."""
-    try:
-        result = obj.client.get_by_sha256(sha256)
-        rich.print_json(data=result)
-        if retrieve_urls:
-            print_urls()
-    except GDetectError as exc:
-        handleGDetectError(exc)
+    result = obj.client.get_by_sha256(sha256)
+    rich.print_json(data=result)
+    if retrieve_urls:
+        print_urls()
 
 
 @gdetect.command("waitfor")
@@ -183,29 +189,29 @@ def search(obj: GDetectContext = None, sha256: str = "", retrieve_urls: bool = F
 @click.option("-t", "--tag", multiple=True, help="tags to assign to the file.")
 @click.option("-d", "--description", help="description of the file.")
 @click.option("--retrieve-urls", is_flag=True, help="retrieve urls")
+@catch_exceptions
 def waitfor(
     obj: GDetectContext = None,
     filename: str = "",
     timeout: int = 180,
-    tag: List[str] = [],
+    tag: Optional[List[str]] = None,
     description: str = "",
     retrieve_urls: bool = False,
 ):
     """send a file and wait for the result."""
-    try:
-        result = obj.client.waitfor(
-            filename,
-            bypass_cache=obj.no_cache,
-            timeout=timeout,
-            tags=tag,
-            description=description,
-            archive_password=obj.archive_password,
-        )
-        rich.print_json(data=result)
-        if retrieve_urls:
-            print_urls()
-    except GDetectError as exc:
-        handleGDetectError(exc)
+    if tag is None:
+        tag = []
+    result = obj.client.waitfor(
+        filename,
+        bypass_cache=obj.no_cache,
+        timeout=timeout,
+        tags=tag,
+        description=description,
+        archive_password=obj.archive_password,
+    )
+    rich.print_json(data=result)
+    if retrieve_urls:
+        print_urls(result)
 
 
 def print_response_error_msg(msg):
@@ -214,28 +220,19 @@ def print_response_error_msg(msg):
 
 
 @click.pass_obj
-def print_urls(obj: GDetectContext = None):
+def print_urls(obj: GDetectContext = None, result: object = None):
     """Print url for token and analyse view"""
     try:
-        url_token_view = obj.client.extract_url_token_view()
+        url_token_view = obj.client.extract_url_token_view(result)
         console.print("TOKEN VIEW URL: ", url_token_view)
-    except (exceptions.MissingToken, exceptions.MissingResponse):
+    except MissingTokenError:
         pass
 
     try:
-        url_expert_analyse = obj.client.extract_expert_url()
+        url_expert_analyse = obj.client.extract_expert_url(result)
         console.print("ANALYSE VIEW URL: ", url_expert_analyse)
-    except (exceptions.MissingSID, exceptions.MissingResponse):
+    except MissingSIDError:
         pass
-
-
-def handleGDetectError(exc: GDetectError):
-    if isinstance(exc, NoAuthenticateToken):
-        error_console.print("Error: Missing argument 'TOKEN'")
-    elif isinstance(exc, BadAuthenticationToken):
-        error_console.print("Error: Invalid 'TOKEN'")
-    else:
-        error_console.print("error: %r" % exc)
 
 
 if __name__ == "__main__":
