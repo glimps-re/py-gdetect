@@ -71,7 +71,7 @@ SHA256_PATTERN = re.compile(r"[0-9a-f]{64}")
 TOKEN_PATTERN = re.compile(
     r"[0-9a-f]{8}-[0-9a-f]{8}-[0-9a-f]{8}-[0-9a-f]{8}-[0-9a-f]{8}"
 )
-GDETECT_USER_AGENT = "py-gdetect/0.3.0"
+GDETECT_USER_AGENT = "py-gdetect/0.4.0"
 
 
 class Client:
