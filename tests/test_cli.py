@@ -137,3 +137,14 @@ def test_waitfor_file_with_password(runner: CliRunner):
     )
     assert result.exit_code == 0
     assert len(result.output) > 35
+
+
+def test_params(runner: CliRunner):
+    """"""
+    result = runner.invoke(
+        gdetect,
+        '--insecure --no-cache --password "toto" --debug '
+        '--token=978abce3-42af0258-c5dee9ad-85e5fb5e-a249b8a2 '
+        '--url=http://test.test waitfor --tag=test_tag {TEST_FILE}',
+    )
+    assert result.exit_code == 1

@@ -17,7 +17,8 @@ Usage examples:
     'sha256': '7850d6e51ef6d0bc8c8c1903a24c22a090516afa6f3b4db6e4b3e6dd44462a99',
     'sha1': 'e0b77bdd78bf3215221298475c88fb23e4e84f98',
     'md5': 'e1c080be1a748d69246ad9c766ad8809',
-    'ssdeep': '384:MCDKKQOcRpmYLdn6RBOFRFt5rUFX1DiSIlCo3AnupCFNqnrrd1NEZgO8UXWozPLL:P/QOC0Yhn6ROHWFlAcwNEFCnNBxc6nc/',
+    'ssdeep': '384:MCDKKQOcRpmYLdn6RBOFRFt5rUFX1DiSIlCo3AnupCFNqnrrd1NEZgO8UXWozPLL:
+P/QOC0Yhn6ROHWFlAcwNEFCnNBxc6nc/',
     'is_malware': True,
     'score': 3000,
     'done': True,
@@ -47,9 +48,10 @@ from requests.exceptions import JSONDecodeError
 from .log import get_logger
 from .exceptions import (
     BadAuthenticationTokenError,
-    GDetectError,
     BadSHA256Error,
     BadUUIDError,
+    GDetectError,
+    GDetectTimeoutError,
     InternalServerError,
     MissingSIDError,
     MissingTokenError,
@@ -96,16 +98,17 @@ class Client:
         # check inputs
         self._check_token()
 
-    def _get_verify(self):
+    @property
+    def verify(self) -> bool:
+        """Does the client need to check TLS certificates"""
         return self._verify
 
-    def _set_verify(self, enable_check: bool):
+    @verify.setter
+    def verify(self, enable_check: bool):
         if not enable_check:
             # remove print of requests warning about SSL
             urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
         self._verify = enable_check
-
-    verify = property(_get_verify, _set_verify)
 
     def push_reader(
         self,
@@ -154,9 +157,6 @@ class Client:
         )
 
         # parse response and return UUID
-        if not resp.ok:
-            logger.error("%s: %s", resp.message, resp.error)
-            raise GDetectError
         try:
             response = resp.json()
         except JSONDecodeError as exc:
@@ -259,8 +259,8 @@ class Client:
         self,
         filename: str,
         bypass_cache: bool = False,
-        pull_time: int = 5,
-        timeout: int = 180,
+        pull_time: float = 1.0,
+        timeout: float = 180,
         tags: tuple = (),
         description: str = None,
         archive_password: str = None,
@@ -302,8 +302,8 @@ class Client:
         filename: str,
         reader: StreamReader,
         bypass_cache: bool = False,
-        pull_time: int = 5,
-        timeout: int = 180,
+        pull_time: float = 1,
+        timeout: float = 180,
         tags: tuple = (),
         description: str = None,
         archive_password: str = None,
@@ -346,7 +346,7 @@ class Client:
             if result["done"]:
                 return result
             if time.time() - start_time > timeout:
-                raise GDetectError
+                raise GDetectTimeoutError(f"analysis took more than {timeout}s")
             time.sleep(pull_time)
 
     def extract_url_token_view(self, resp: dict) -> str:
@@ -384,9 +384,8 @@ class Client:
         )
 
     def _check_uuid(self, uuid: str):
-        if UUID_PATTERN.match(uuid):
-            return
-        raise BadUUIDError
+        if not UUID_PATTERN.match(uuid):
+            raise BadUUIDError
 
     def _check_sha256(self, sha256):
         if not SHA256_PATTERN.match(sha256):
@@ -440,9 +439,10 @@ HTTPExceptions = {
 
 
 def compute_exception_from_response(resp: requests.Response) -> GDetectError:
+    """Compute a GDetectError from an requests.Response"""
     exc = HTTPExceptions.get(resp.status_code, GDetectError)
     try:
         msg = resp.json()
-        return exc(msg.get('error', ''))
+        return exc(msg.get("error", ""))
     except JSONDecodeError:
         return exc

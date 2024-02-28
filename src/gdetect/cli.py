@@ -44,8 +44,6 @@ from .exceptions import (
     GDetectError,
     MissingSIDError,
     MissingTokenError,
-    NoAuthenticateTokenError,
-    BadAuthenticationTokenError,
 )
 
 # initialize rich Console for pretty print
@@ -73,14 +71,17 @@ class GDetectContext:
 
 
 def catch_exceptions(func):
+    """decorator to catch exceptions and raise a ClickException"""
     @wraps(func)
     def wrapper(*args, **kwargs):
         try:
             return func(*args, **kwargs)
-        except MissingSchema:
-            raise click.ClickException("Invalid or no URL provided to reach GMalware detect API")
+        except MissingSchema as exc:
+            raise click.ClickException(
+                "Invalid or no URL provided to reach GMalware detect API"
+            ) from exc
         except GDetectError as e:
-            raise click.ClickException(e)
+            raise click.ClickException(e) from e
 
     return wrapper
 
@@ -168,6 +169,7 @@ def get(obj: GDetectContext = None, uuid: str = "", retrieve_urls: bool = False)
     rich.print(result)
     if retrieve_urls:
         print_urls(result)
+
 
 @gdetect.command("search")
 @click.argument("sha256")

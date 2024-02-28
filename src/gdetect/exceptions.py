@@ -38,11 +38,11 @@ class UnauthorizedAccessError(GDetectError):
 
 
 class BadUUIDError(GDetectError):
-    """given UUID is wrong"""
+    """Bad UUID value"""
 
 
 class BadSHA256Error(GDetectError):
-    """given SHA256 hash is wrong"""
+    """Bad SHA256 value"""
 
 
 class MissingTokenError(GDetectError):
@@ -67,3 +67,7 @@ class TooManyRequestError(GDetectError):
 
 class InternalServerError(GDetectError):
     """Internal server error"""
+
+
+class GDetectTimeoutError(GDetectError):
+    """Timeout during API call"""

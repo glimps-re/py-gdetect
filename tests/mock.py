@@ -2,6 +2,9 @@
 This file includes all test mocks
 """
 
+from typing import Any
+import requests
+
 
 class MockRequest:
     """Mock a request to a file"""
@@ -64,6 +67,36 @@ class MockTooManyRequests(MockRequest):
     _json = {"status": False, "error": "quota exceeded, try again in 24h"}
 
 
+class MockAnalysisInProgress(MockRequest):
+    """Mock a request for an analysis in progress"""
+
+    ok = True
+    status_code = 200
+    _json = {
+        "uuid": "9d488d01-23d5-4b9f-894e-c920ea732603",
+        "sha256": "7850d6e51ef6d0bc8c8c1903a24c22a090516afa6f3b4db6e4b3e6dd44462a99",
+        "sha1": "e0b77bdd78bf3215221298475c88fb23e4e84f98",
+        "md5": "e1c080be1a748d69246ad9c766ad8809",
+        "done": False,
+        "timestamp": 0,
+        "filetype": "elf",
+        "size": 24728,
+        "filenames": ["sample1"],
+        "files": [],
+        "sid": "7UZy0tbWPSTdNfkzKSW5gS",
+    }
+
+
+class Mock502(MockRequest):
+    """Mock a 502 response from the server"""
+
+    status_code = 502
+    ok = False
+
+    def json(self):
+        raise requests.exceptions.JSONDecodeError
+
+
 def mock_request(*args, **kwargs):
     """Return json encoded mock request."""
     return MockRequest()
@@ -82,3 +115,33 @@ def mock_request_invalid_file(*args, **kwargs):
 def mock_request_too_many_request(*args, **kwargs):
     """Return http 429 mock request"""
     return MockTooManyRequests()
+
+
+def mock_request_analysis_in_progress(*args, **kwargs):
+    """Return http 200 mock request"""
+    return MockAnalysisInProgress()
+
+
+def mock_request_502(*args, **kwargs):
+    """Return http 502 mock request"""
+    return Mock502()
+
+
+def mock_request_invalid_200(*args, **kwargs):
+    """Return http 502 mock request"""
+    m = Mock502()
+    m.status_code = 200
+    m.ok = True
+    return m
+
+
+def mock_request_custom(status_code: int, json: Any, ok: bool):
+    m = MockRequest()
+    m.status_code = status_code
+    m._json = json
+    m.ok = ok
+
+    def inner(*args, **kwargs):
+        return m
+
+    return inner
