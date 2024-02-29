@@ -302,3 +302,51 @@ def test_invalid_response_from_server_push(monkeypatch: pytest.MonkeyPatch):
 def test_gdetect_error():
     exc = exceptions.BadSHA256Error("custom message")
     assert str(exc) == "Bad SHA256 value: custom message"
+
+
+def test_get_status(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(
+        requests,
+        "request",
+        mock_request_custom(
+            200,
+            {
+                "daily_quota": 2,
+                "available_daily_quota": 0,
+                "cache": False,
+                "estimated_analysis_duration": 0,
+            },
+            True,
+        ),
+    )
+    client = get_api_client()
+    status = client.get_status()
+    assert status.daily_quota == 2
+    assert status.available_daily_quota == 0
+    assert status.cache is False
+    assert status.estimated_analysis_duration == 0
+
+
+def test_get_status2(monkeypatch: pytest.MonkeyPatch):
+    result_status = {
+        "daily_quota": 1000,
+        "available_daily_quota": 147,
+        "cache": True,
+        "estimated_analysis_duration": 9642,
+    }
+    monkeypatch.setattr(
+        requests,
+        "request",
+        mock_request_custom(
+            200,
+            result_status,
+            True,
+        ),
+    )
+    client = get_api_client()
+    status = client.get_status()
+    assert status.daily_quota == 1000
+    assert status.available_daily_quota == 147
+    assert status.cache is True
+    assert status.estimated_analysis_duration == 9642
+    assert status.to_dict() == result_status

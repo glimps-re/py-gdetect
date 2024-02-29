@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 import os
+from typing import Any
 import pytest
 import requests
 from click.testing import CliRunner
 from gdetect.cli import gdetect
-from .mock import mock_request
+from .mock import mock_request, mock_request_custom
 from .test_api import TEST_FILE
 
 
@@ -111,7 +112,7 @@ def test_get_existing_result_by_sha256(
     sha256="7850d6e51ef6d0bc8c8c1903a24c22a090516afa6f3b4db6e4b3e6dd44462a99",
 ):
     """Test get of existing result by file sha256"""
-    result = runner.invoke(gdetect, f"--insecure search {sha256}")
+    result = runner.invoke(gdetect, f"--insecure search --retrieve-urls {sha256}")
     assert result.exit_code == 0
 
 
@@ -139,12 +140,52 @@ def test_waitfor_file_with_password(runner: CliRunner):
     assert len(result.output) > 35
 
 
+def test_status(runner: CliRunner, monkeypatch: pytest.MonkeyPatch):
+    """"""
+    monkeypatch.setattr(requests, "request", mock_request_custom(200, {}, True))
+    result = runner.invoke(
+        gdetect,
+        f"status",
+    )
+    assert result.exit_code == 0
+
+
 def test_params(runner: CliRunner):
     """"""
     result = runner.invoke(
         gdetect,
         '--insecure --no-cache --password "toto" --debug '
-        '--token=978abce3-42af0258-c5dee9ad-85e5fb5e-a249b8a2 '
-        '--url=http://test.test waitfor --tag=test_tag {TEST_FILE}',
+        "--token=978abce3-42af0258-c5dee9ad-85e5fb5e-a249b8a2 "
+        "--url=http://test.test waitfor --tag=test_tag {TEST_FILE}",
     )
     assert result.exit_code == 1
+
+
+def test_waitfor_file_2(runner: CliRunner, monkeypatch: pytest.MonkeyPatch):
+    """Test file sending waiting with no token or sid."""
+    monkeypatch.setattr(
+        requests,
+        "request",
+        mock_request_custom(
+            200,
+            {
+                "uuid": "9d488d01-23d5-4b9f-894e-c920ea732603",
+                "sha256": "7850d6e51ef6d0bc8c8c1903a24c22a090516afa6f3b4db6e4b3e6dd44462a99",
+                "sha1": "e0b77bdd78bf3215221298475c88fb23e4e84f98",
+                "md5": "e1c080be1a748d69246ad9c766ad8809",
+                "done": True,
+                "timestamp": 0,
+                "filetype": "elf",
+                "size": 24728,
+                "filenames": ["sample1"],
+                "files": [],
+            },
+            True,
+        ),
+    )
+    result = runner.invoke(
+        gdetect,
+        f"--insecure --no-cache waitfor --retrieve-urls {TEST_FILE}",
+    )
+    assert result.exit_code == 0
+    assert len(result.output) > 35

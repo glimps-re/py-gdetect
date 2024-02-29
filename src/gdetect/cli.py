@@ -181,7 +181,7 @@ def search(obj: GDetectContext = None, sha256: str = "", retrieve_urls: bool = F
     result = obj.client.get_by_sha256(sha256)
     rich.print_json(data=result)
     if retrieve_urls:
-        print_urls()
+        print_urls(result)
 
 
 @gdetect.command("waitfor")
@@ -201,8 +201,6 @@ def waitfor(
     retrieve_urls: bool = False,
 ):
     """send a file and wait for the result."""
-    if tag is None:
-        tag = []
     result = obj.client.waitfor(
         filename,
         bypass_cache=obj.no_cache,
@@ -214,11 +212,6 @@ def waitfor(
     rich.print_json(data=result)
     if retrieve_urls:
         print_urls(result)
-
-
-def print_response_error_msg(msg):
-    """print error messages inside console"""
-    error_console.print(f"An error occurs: {msg}")
 
 
 @click.pass_obj
@@ -235,6 +228,15 @@ def print_urls(obj: GDetectContext = None, result: object = None):
         console.print("ANALYSE VIEW URL: ", url_expert_analyse)
     except MissingSIDError:
         pass
+
+
+@gdetect.command("status")
+@click.pass_obj
+@catch_exceptions
+def status(obj: GDetectContext = None):
+    """Get Detect profile status"""
+    result = obj.client.get_status()
+    rich.print_json(data=result.to_dict())
 
 
 if __name__ == "__main__":

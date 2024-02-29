@@ -33,6 +33,8 @@ P/QOC0Yhn6ROHWFlAcwNEFCnNBxc6nc/',
 }
 """
 
+from dataclasses import asdict, dataclass
+from json import JSONEncoder
 import pathlib
 import time
 import urllib.parse
@@ -73,7 +75,28 @@ SHA256_PATTERN = re.compile(r"[0-9a-f]{64}")
 TOKEN_PATTERN = re.compile(
     r"[0-9a-f]{8}-[0-9a-f]{8}-[0-9a-f]{8}-[0-9a-f]{8}-[0-9a-f]{8}"
 )
-GDETECT_USER_AGENT = "py-gdetect/0.4.2"
+GDETECT_USER_AGENT = "py-gdetect/0.5.0"
+
+
+@dataclass
+class Status:
+    """Detect profile status
+    daily_quota (int): Amount of submission that the profile is authorized by 24h.
+    available_daily_quota (int): Amount of submission that could be submitted at the instant.
+            It's a sliding window, so a new slot will be released 24h after each submission.
+    cache (bool): If True, the profile is configured to use cached result by default.
+    estimated_analysis_duration (int): It's an estimation of the duration of the next submission in milliseconds.
+            It's based on the average time of submissions and the submission queue state.
+            The real duration could be very different from the estimation.
+    """
+
+    daily_quota: int
+    available_daily_quota: int
+    cache: bool
+    estimated_analysis_duration: int
+
+    def to_dict(self) -> dict:
+        return asdict(self)
 
 
 class Client:
@@ -250,7 +273,6 @@ class Client:
         response = self._request(
             "get",
             path,
-            headers={"X-Auth-Token": self.token},
         )
 
         return response.json()
@@ -348,6 +370,27 @@ class Client:
             if time.time() - start_time > timeout:
                 raise GDetectTimeoutError(f"analysis took more than {timeout}s")
             time.sleep(pull_time)
+
+    def get_status(self) -> Status:
+        """
+        Get detect profile status
+        """
+        # prepare request
+        path = f"{self.url}/status"
+
+        # send request
+        response = self._request(
+            "get",
+            path,
+        )
+
+        status = response.json()
+        return Status(
+            daily_quota=status.get("daily_quota", 0),
+            available_daily_quota=status.get("available_daily_quota", 0),
+            cache=status.get("cache", False),
+            estimated_analysis_duration=status.get("estimated_analysis_duration", 0),
+        )
 
     def extract_url_token_view(self, resp: dict) -> str:
         """Extract url token view from response.
