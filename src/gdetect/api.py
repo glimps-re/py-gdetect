@@ -73,7 +73,7 @@ SHA256_PATTERN = re.compile(r"[0-9a-f]{64}")
 TOKEN_PATTERN = re.compile(
     r"[0-9a-f]{8}-[0-9a-f]{8}-[0-9a-f]{8}-[0-9a-f]{8}-[0-9a-f]{8}"
 )
-GDETECT_USER_AGENT = "py-gdetect/0.4.1"
+GDETECT_USER_AGENT = "py-gdetect/0.4.2"
 
 
 class Client:
@@ -273,8 +273,8 @@ class Client:
         Args:
             filename (str): Fullpath of binary.
             bypass_cache (bool): If True, the file is analyzed, even if a result already exists.
-            pull_time (int): The time to wait (in seconds) between each requests to get a result.
-            timeout (int): The maximum time execution of this method in seconds.
+            pull_time (float): The time to wait (in seconds) between each requests to get a result.
+            timeout (float): The maximum time execution of this method in seconds.
             tags (tuple, optional): If filled, the file will be tagged with those tags.
             description (str, optional): If filled, the description will be filled in on the file.
             archive_password (str, optional) : If filled, the password used to extract archive
@@ -317,8 +317,8 @@ class Client:
             filename (str): binary name.
             reader (StreamReader): a reader for the binary
             bypass_cache (bool): If True, the file is analyzed, even if a result already exists.
-            pull_time (int): The time to wait (in seconds) between each requests to get a result.
-            timeout (int): The maximum time execution of this method in seconds.
+            pull_time (float): The time to wait (in seconds) between each requests to get a result.
+            timeout (float): The maximum time execution of this method in seconds.
             tags (tuple, optional): If filled, the file will be tagged with those tags.
             description (str, optional): If filled, the description will be filled in on the file.
             archive_password (str, optional) : If filled, the password used to extract archive

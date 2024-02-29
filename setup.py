@@ -1,6 +1,6 @@
 from setuptools import find_packages, setup
 
-VERSION = "0.4.1"
+VERSION = "0.4.2"
 REQUIRED = [
     "click==8.0.3",
     "click-default-group==1.2.2",
