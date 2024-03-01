@@ -1,11 +1,11 @@
 from setuptools import find_packages, setup
 
-VERSION = "0.5.0"
+VERSION = "0.5.1"
 REQUIRED = [
-    "click==8.0.3",
-    "click-default-group==1.2.2",
-    "requests==2.27.1",
-    "rich==11.0.0",
+    "click~=8.0",
+    "click-default-group~=1.2",
+    "requests~=2.27.1",
+    "rich~=11.0",
 ]
 
 with open("README.md", "r", encoding="utf-8") as fh:
