@@ -94,7 +94,7 @@ class Mock502(MockRequest):
     ok = False
 
     def json(self):
-        raise requests.exceptions.JSONDecodeError
+        raise requests.exceptions.JSONDecodeError("error", "error doc", 1)
 
 
 def mock_request(*args, **kwargs):
