@@ -19,7 +19,7 @@ from .mock import (
 # file used for test purposes, it only have to exists
 TEST_FILE = urllib.__file__
 TEST_URL = "https://gmalware.domain.tld"
-TEST_TOKEN = "978abce3-42af0258-c5dee9ad-85e6fb5e-a249b8a3"
+TEST_TOKEN = "01234567-01234567-01234567-01234567-01234567"
 
 
 def get_api_client():
@@ -35,7 +35,6 @@ def get_api_client():
 
 def test_bad_url():
     """Test client setup with no url"""
-
     with pytest.raises(Exception):
         client = Client("tcp://gmalware.fr", TEST_TOKEN)
         client.push(
@@ -48,7 +47,7 @@ def test_bad_url():
 def test_no_token_given(monkeypatch: pytest.MonkeyPatch):
     """Test client set up with no token."""
     monkeypatch.setattr(requests, "request", mock_request)
-    with pytest.raises(exceptions.NoAuthenticateTokenError):
+    with pytest.raises(exceptions.NoAuthenticationTokenError):
         client = Client(TEST_URL, "")
         client.push(
             TEST_FILE,
@@ -110,7 +109,6 @@ def test_push_no_file(monkeypatch: pytest.MonkeyPatch):
 
 def test_push_elf_malware(monkeypatch: pytest.MonkeyPatch):
     """Expected an id as result"""
-
     monkeypatch.setattr(requests, "request", mock_request)
     client = get_api_client()
     id_file = client.push(
@@ -124,14 +122,13 @@ def test_push_elf_malware(monkeypatch: pytest.MonkeyPatch):
 def test_push_quota_exceeded(monkeypatch: pytest.MonkeyPatch):
     """Expected an error 429"""
     monkeypatch.setattr(requests, "request", mock_request_too_many_request)
-    with pytest.raises(exceptions.TooManyRequestError):
+    with pytest.raises(exceptions.TooManyRequestsError):
         client = get_api_client()
         client.push(
             TEST_FILE,
             tags="elf",
             description="this is an elf malware.",
         )
-    # assert client.response.message == "too many requests"
 
 
 def test_push_with_password(monkeypatch: pytest.MonkeyPatch):
@@ -154,14 +151,11 @@ def test_retrieve_analysis_result_by_uuid(
 
 
 def test_retrieve_analysis_result_empty_uuid(monkeypatch: pytest.MonkeyPatch, uuid=""):
-    """Test file's info retrieved by uuid."""
+    """Test retrieving analysis result with empty uuid."""
     monkeypatch.setattr(requests, "request", mock_request)
     client = get_api_client()
-    try:
-        _ = client.get_by_uuid(uuid)
-        assert False
-    except exceptions.GDetectError:
-        assert True
+    with pytest.raises(exceptions.GDetectError):
+        client.get_by_uuid(uuid)
 
 
 def test_search_sha256_empty(monkeypatch: pytest.MonkeyPatch, sha256=""):
@@ -225,12 +219,17 @@ def test_send_and_wait_with_password(monkeypatch: pytest.MonkeyPatch):
         pytest.fail("result is not the expected JSON")
 
 
+def test_extract_url_token_view_empty():
+    """Test url token view extraction with empty token"""
+    client = get_api_client()
+    with pytest.raises(exceptions.MissingTokenError):
+        client.extract_url_token_view({})
+
+
 def test_extract_url_token_view(monkeypatch: pytest.MonkeyPatch):
     """Test url token view extraction"""
     monkeypatch.setattr(requests, "request", mock_request)
     client = get_api_client()
-    with pytest.raises(exceptions.MissingTokenError):
-        client.extract_url_token_view({})
     result = client.waitfor(
         TEST_FILE,
         tags="elf",
@@ -243,8 +242,15 @@ def test_extract_url_token_view(monkeypatch: pytest.MonkeyPatch):
     )
 
 
+def test_extract_url_expert_view_empty_sid():
+    """Test url expert view extraction with empty sid"""
+    client = get_api_client()
+    with pytest.raises(exceptions.MissingSIDError):
+        client.extract_expert_url({})
+
+
 def test_extract_url_expert_view(monkeypatch: pytest.MonkeyPatch):
-    """Test url token view extraction"""
+    """Test url expert view extraction"""
     monkeypatch.setattr(requests, "request", mock_request)
     client = get_api_client()
     result = client.waitfor(
@@ -259,12 +265,6 @@ def test_extract_url_expert_view(monkeypatch: pytest.MonkeyPatch):
     )
 
 
-def test_extract_expert_url():
-    client = get_api_client()
-    with pytest.raises(exceptions.MissingSIDError):
-        client.extract_expert_url({})
-
-
 def test_send_binary_and_wait_result_with_timeout(monkeypatch: pytest.MonkeyPatch):
     """Test waiting for a binary that has just been sent"""
     monkeypatch.setattr(requests, "request", mock_request_analysis_in_progress)
@@ -273,8 +273,8 @@ def test_send_binary_and_wait_result_with_timeout(monkeypatch: pytest.MonkeyPatc
         client.waitfor(TEST_FILE, pull_time=0.05, timeout=0.1)
 
 
-def test_invalid_response_from_server(monkeypatch: pytest.MonkeyPatch):
-    """Test received an invalid response from the server"""
+def test_invalid_response_from_server_waitfor(monkeypatch: pytest.MonkeyPatch):
+    """Test receiving an invalid response from the server"""
     monkeypatch.setattr(requests, "request", mock_request_502)
     client = get_api_client()
     with pytest.raises(exceptions.GDetectError):
@@ -282,7 +282,7 @@ def test_invalid_response_from_server(monkeypatch: pytest.MonkeyPatch):
 
 
 def test_invalid_response_from_server_push(monkeypatch: pytest.MonkeyPatch):
-    """Test received an invalid response from the server"""
+    """Test receiving an invalid response from the server"""
     monkeypatch.setattr(requests, "request", mock_request_invalid_200)
     client = get_api_client()
     with pytest.raises(exceptions.GDetectError):
@@ -300,11 +300,13 @@ def test_invalid_response_from_server_push(monkeypatch: pytest.MonkeyPatch):
 
 
 def test_gdetect_error():
+    """Test custom gdetect errors"""
     exc = exceptions.BadSHA256Error("custom message")
     assert str(exc) == "Bad SHA256 value: custom message"
 
 
 def test_get_status(monkeypatch: pytest.MonkeyPatch):
+    """Test getting status for a profile"""
     monkeypatch.setattr(
         requests,
         "request",
@@ -326,8 +328,7 @@ def test_get_status(monkeypatch: pytest.MonkeyPatch):
     assert status.cache is False
     assert status.estimated_analysis_duration == 0
 
-
-def test_get_status2(monkeypatch: pytest.MonkeyPatch):
+    # test with different values
     result_status = {
         "daily_quota": 1000,
         "available_daily_quota": 147,
@@ -339,7 +340,12 @@ def test_get_status2(monkeypatch: pytest.MonkeyPatch):
         "request",
         mock_request_custom(
             200,
-            result_status,
+            {
+                "daily_quota": 1000,
+                "available_daily_quota": 147,
+                "cache": True,
+                "estimated_analysis_duration": 9642,
+            },
             True,
         ),
     )
@@ -350,3 +356,4 @@ def test_get_status2(monkeypatch: pytest.MonkeyPatch):
     assert status.cache is True
     assert status.estimated_analysis_duration == 9642
     assert status.to_dict() == result_status
+

@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 
 """
-This module define all Exceptions for GDetect.
-GDetectError is for all external call.
+This module defines all Exceptions for GDetect.
+GDetectError is for all external calls.
 All other exceptions are for internal use.
 """
 
@@ -21,7 +21,7 @@ class GDetectError(Exception):
         return self.__doc__
 
 
-class NoAuthenticateTokenError(GDetectError):
+class NoAuthenticationTokenError(GDetectError):
     """No authentication token provided"""
 
 
@@ -61,7 +61,7 @@ class ResultNotFoundError(GDetectError):
     """Result not found"""
 
 
-class TooManyRequestError(GDetectError):
+class TooManyRequestsError(GDetectError):
     """Too many requests"""
 
 

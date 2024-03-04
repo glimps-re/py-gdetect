@@ -1,10 +1,10 @@
 """Api is a module to connect to GLIMPS detect service.
 
 This module helps to use GLIMPS detect. Main parameters are the token and the url.
-If no token are given to constructor, the Api class try to get the 'API_TOKEN' environment variable.
-If this variable doesn't exists, a exception is raises.
+If no token is given to constructor, the Api class tries to get the 'API_TOKEN' environment variable.
+If this variable doesn't exist, a exception is raised.
 
-It's the same for url: try to get environment variable 'API_URL' or raises exception.
+The behavior is similar for url: tries to get environment variable 'API_URL' or raises exception.
 
 Usage examples:
 
@@ -34,7 +34,6 @@ P/QOC0Yhn6ROHWFlAcwNEFCnNBxc6nc/',
 """
 
 from dataclasses import asdict, dataclass
-from json import JSONEncoder
 import pathlib
 import time
 import urllib.parse
@@ -57,9 +56,9 @@ from .exceptions import (
     InternalServerError,
     MissingSIDError,
     MissingTokenError,
-    NoAuthenticateTokenError,
+    NoAuthenticationTokenError,
     ResultNotFoundError,
-    TooManyRequestError,
+    TooManyRequestsError,
     UnauthorizedAccessError,
 )
 from .stream import StreamReader
@@ -81,13 +80,13 @@ GDETECT_USER_AGENT = "py-gdetect/0.5.1"
 @dataclass
 class Status:
     """Detect profile status
-    daily_quota (int): Amount of submission that the profile is authorized by 24h.
-    available_daily_quota (int): Amount of submission that could be submitted at the instant.
+    daily_quota (int): Number of submissions authorized for the profile within 24h.
+    available_daily_quota (int): Number of submissions still available within 24h.
             It's a sliding window, so a new slot will be released 24h after each submission.
     cache (bool): If True, the profile is configured to use cached result by default.
-    estimated_analysis_duration (int): It's an estimation of the duration of the next submission in milliseconds.
+    estimated_analysis_duration (int): It's an estimation of the duration for the next submissions in milliseconds.
             It's based on the average time of submissions and the submission queue state.
-            The real duration could be very different from the estimation.
+            The real duration could differ from the estimation.
     """
 
     daily_quota: int
@@ -100,7 +99,7 @@ class Status:
 
 
 class Client:
-    """Client class build an object to interact with url.
+    """Client class builds an object to interact with url.
 
     The constructor takes 2 parameters: 'url' and 'token'.
 
@@ -145,12 +144,12 @@ class Client:
         """Push a file to API endpoint (using reader).
 
         Args:
-            filename (str): Fullpath of binary.
+            filename (str): name of submitted file.
             bypass_cache (bool, optional):
                 If True, the file is analyzed, even if a result already exists.
             tags (tuple, optional): If filled, the file will be tagged with those tags.
-            description (str, optional): If filled, the description will be filled in on the file.
-            archive_password (str, optional) : If filled, the password used to extract archive
+            description (str, optional): If filled, a description will be added to the analysis.
+            archive_password (str, optional) : If filled, the password used to extract archive.
 
         Returns:
             uuid (str): unique id of analysis
@@ -161,8 +160,8 @@ class Client:
             requests.RequestException: there was an error reaching GMalware server
         """
 
-        files = {"file": (filename, reader)}
         # prepare request
+        files = {"file": (filename, reader)}
         params = {
             "bypass-cache": f"{bool(bypass_cache)}",
             "tags": ",".join(tags),
@@ -201,12 +200,12 @@ class Client:
         """Push a file to API endpoint.
 
         Args:
-            filename (str): Fullpath of binary.
+            filename (str): Fullpath of submitted file.
             bypass_cache (bool, optional):
                 If True, the file is analyzed, even if a result already exists.
             tags (tuple, optional): If filled, the file will be tagged with those tags.
-            description (str, optional): If filled, the description will be filled in on the file.
-            archive_password (str, optional) : If filled, the password used to extract archive
+            description (str, optional): If filled, a description will be added to the analysis.
+            archive_password (str, optional) : If filled, the password used to extract archive.
 
         Returns:
             uuid (str): unique id of analysis
@@ -228,13 +227,13 @@ class Client:
             )
 
     def get_by_sha256(self, sha256: str) -> dict:
-        """_summary_
+        """Retrieve analysis result using file sha256
 
         Args:
             sha256 (str): sha256 of the file
 
         Raises:
-            exceptions.GDetectError: An error occurs. Check :class:`~Api.Response` for details.
+            exceptions.GDetectError: An error occured.
 
         Returns:
             dict: The json-encoded content of a response, if any.
@@ -251,7 +250,7 @@ class Client:
         return response.json()
 
     def get_by_uuid(self, uuid: str) -> dict:
-        """Retrieve analysis result
+        """Retrieve analysis result using analysis uuid
 
         Args:
             uuid (str): identification number of submitted file.
@@ -260,7 +259,7 @@ class Client:
             result (dict): The json-encoded content of a response, if any.
 
         Raises:
-            exceptions.GDetectError: An error occurs. Check :class:`~Api.Response` for details.
+            exceptions.GDetectError: An error occured.
         """
 
         # check inputs
@@ -270,10 +269,7 @@ class Client:
         path = f"{self.url}/results/{uuid}"
 
         # send request
-        response = self._request(
-            "get",
-            path,
-        )
+        response = self._request("get", path)
 
         return response.json()
 
@@ -293,19 +289,19 @@ class Client:
         The pull time is arbitrary set to 5 seconds, and timeout to 3 minutes.
 
         Args:
-            filename (str): Fullpath of binary.
+            filename (str): Fullpath of submitted file.
             bypass_cache (bool): If True, the file is analyzed, even if a result already exists.
             pull_time (float): The time to wait (in seconds) between each requests to get a result.
             timeout (float): The maximum time execution of this method in seconds.
             tags (tuple, optional): If filled, the file will be tagged with those tags.
-            description (str, optional): If filled, the description will be filled in on the file.
+            description (str, optional): If filled, a description will be added to the analysis.
             archive_password (str, optional) : If filled, the password used to extract archive
 
         Returns:
             result (object): The json-encoded content of a response, if any.
 
         Raises:
-            exceptions.GDetectError: An error occurs. Check :class:`~Api.Response` for details.
+            exceptions.GDetectError: An error occurs.
         """
         with open(filename, "rb") as reader:
             return self.waitfor_reader(
@@ -330,26 +326,26 @@ class Client:
         description: str = None,
         archive_password: str = None,
     ) -> object:
-        """Send a file to GLIMPS Detect and wait for a result.
+        """Send a file to GLIMPS Detect and wait for a result (using reader).
 
         This function is an 'all-in-one' for sending and getting result.
         The pull time is arbitrary set to 5 seconds, and timeout to 3 minutes.
 
         Args:
-            filename (str): binary name.
+            filename (str): name of submitted file.
             reader (StreamReader): a reader for the binary
             bypass_cache (bool): If True, the file is analyzed, even if a result already exists.
             pull_time (float): The time to wait (in seconds) between each requests to get a result.
             timeout (float): The maximum time execution of this method in seconds.
             tags (tuple, optional): If filled, the file will be tagged with those tags.
-            description (str, optional): If filled, the description will be filled in on the file.
+            description (str, optional): If filled, a description will be added to the analysis.
             archive_password (str, optional) : If filled, the password used to extract archive
 
         Returns:
             result (object): The json-encoded content of a response, if any.
 
         Raises:
-            exceptions.GDetectError: An error occurs. Check :class:`~Api.Response` for details.
+            exceptions.GDetectError: An error occurs.
         """
         start_time = time.time()
         # push file, get uuid
@@ -379,10 +375,7 @@ class Client:
         path = f"{self.url}/status"
 
         # send request
-        response = self._request(
-            "get",
-            path,
-        )
+        response = self._request("get", path)
 
         status = response.json()
         return Status(
@@ -436,7 +429,7 @@ class Client:
 
     def _check_token(self):
         if self.token is None or self.token == "":
-            raise NoAuthenticateTokenError()
+            raise NoAuthenticationTokenError()
         if not isinstance(self.token, str):
             raise BadAuthenticationTokenError("token must a be string")
         if not TOKEN_PATTERN.match(self.token):
@@ -476,7 +469,7 @@ HTTPExceptions = {
     401: UnauthorizedAccessError,
     403: UnauthorizedAccessError,
     404: ResultNotFoundError,
-    429: TooManyRequestError,
+    429: TooManyRequestsError,
     500: InternalServerError,
 }
 
