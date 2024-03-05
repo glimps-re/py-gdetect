@@ -20,10 +20,11 @@ Options:
   --help        Show this message and exit.
 
 Commands:
-  send*    send file to API.
   get      get result for given uuid.
+  search   search a file with given sha256.
+  send     send file to API.
+  status   Get Detect profile status
   waitfor  send a file and wait for the result.
-  search   get result for given sha256.
 """
 
 from dataclasses import dataclass
@@ -132,7 +133,6 @@ def gdetect(
         obj.client.verify = not insecure
     if nocache:
         obj.no_cache = nocache
-    # ctx.obj = obj
 
 
 @gdetect.command("send")
@@ -216,7 +216,7 @@ def waitfor(
 
 @click.pass_obj
 def print_urls(obj: GDetectContext = None, result: object = None):
-    """Print url for token and analyse view"""
+    """Print url for token and analysis view"""
     try:
         url_token_view = obj.client.extract_url_token_view(result)
         console.print("TOKEN VIEW URL: ", url_token_view)
@@ -225,7 +225,7 @@ def print_urls(obj: GDetectContext = None, result: object = None):
 
     try:
         url_expert_analyse = obj.client.extract_expert_url(result)
-        console.print("ANALYSE VIEW URL: ", url_expert_analyse)
+        console.print("ANALYSIS VIEW URL: ", url_expert_analyse)
     except MissingSIDError:
         pass
 
