@@ -2,10 +2,5 @@ click~=8.0
 click-default-group~=1.2
 requests~=2.27.1
 rich~=11.0
-pytest==6.2.5
-pytest-cov==3.0.0
-pylint==2.12.2
-black==21.12b0
-flake8==4.0.1
-Sphinx==4.4.0
-tox==3.24.5
+pytest==8.1.1
+pytest-cov==4.1.0
