@@ -1,6 +1,4 @@
 #!/usr/bin/env python3
-# *_* coding: utf-8 *_*
-
 """
 cli: the CLI client for GLIMPS detect.
 

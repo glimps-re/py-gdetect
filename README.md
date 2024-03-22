@@ -1,12 +1,12 @@
-# Gdetect library & client
+# gdetect library & client
 
-a Python client and a library for GLIMPS Gmalware detect.
+A Python client and a library for GLIMPS Gmalware detect.
 
-Gdetect is a solution from GLIMPS *Inc.* for a better detection of malware. Contact us at <contact@glimps.re> for more information !  
+GLIMPS Gmalware detect is a solution from GLIMPS *Inc.* for a better detection of malware. Contact us at <contact@glimps.re> for more information !  
 
 ## Description
 
-Gdetect library aims to simplify use of *Glimps Detect*, a malware detectio solution from GLIMPS *Inc.*.
+`gdetect` library aims to simplify use of *GLIMPS Detect*, a malware detection solution from GLIMPS *Inc.*.
 This tool can be used by two ways:
 
 * As *shell* CLI: `python3 -m gdetect /path/to/my/binary`

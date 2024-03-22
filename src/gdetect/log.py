@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 This is the logger definition for the package.
 """

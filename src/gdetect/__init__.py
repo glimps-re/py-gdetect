@@ -7,7 +7,6 @@ from .exceptions import (
 )
 
 
-__doc__ = Client.__doc__
 __all__ = [
     "Client",
     "GDetectError",

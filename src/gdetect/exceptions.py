@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 This module defines all Exceptions for GDetect.
 GDetectError is for all external calls.
