@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.6.0
+
+### Changed
+
+* Update requests to ~2.32
+
+### Fixed
+
+* Print get CLI command as json.
+
 ## 0.5.1
 
 ### Fixed

@@ -164,7 +164,7 @@ def send(
 def get(obj: GDetectContext = None, uuid: str = "", retrieve_urls: bool = False):
     """get result for given uuid."""
     result = obj.client.get_by_uuid(uuid)
-    rich.print(result)
+    rich.print_json(data=result)
     if retrieve_urls:
         print_urls(result)
 
