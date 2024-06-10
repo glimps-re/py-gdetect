@@ -1,4 +1,4 @@
 click~=8.0
 click-default-group~=1.2
-requests~=2.27.1
+requests~=2.32
 rich~=11.0
