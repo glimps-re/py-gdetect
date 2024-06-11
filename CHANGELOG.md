@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.6.0
+## v0.6.0
 
 ### Changed
 
@@ -10,19 +10,19 @@
 
 * Print get CLI command as json.
 
-## 0.5.1
+## v0.5.1
 
 ### Fixed
 
 * Update versions requirements
 
-## 0.5.0
+## v0.5.0
 
 ### Added
 
 * Status: a new command to get Detect profile status
 
-## 0.4.0
+## v0.4.0
 
 ### Added
 
