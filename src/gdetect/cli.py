@@ -136,12 +136,14 @@ def gdetect(
 @gdetect.command("send")
 @click.pass_obj
 @click.argument("filename")
+@click.option("--timeout", default=30, help="Request timeout to push the file.")
 @click.option("-t", "--tag", multiple=True, help="tags to assign to the file.")
 @click.option("-d", "--description", help="description of the file.")
 @catch_exceptions
 def send(
     obj: GDetectContext = None,
     filename: str = "",
+    timeout: float = 30,
     tag: str = "",
     description: str = "",
 ):
@@ -149,6 +151,7 @@ def send(
     uuid = obj.client.push(
         filename,
         bypass_cache=obj.no_cache,
+        timeout=timeout,
         tags=tag,
         description=description,
         archive_password=obj.archive_password,
@@ -185,7 +188,8 @@ def search(obj: GDetectContext = None, sha256: str = "", retrieve_urls: bool = F
 @gdetect.command("waitfor")
 @click.pass_obj
 @click.argument("filename")
-@click.option("--timeout", default=180, help="set a timeout in seconds")
+@click.option("--push-timeout", default=30, help="timeout for the push request")
+@click.option("--timeout", default=180, help="set a timeout for gmalware analysis in seconds")
 @click.option("-t", "--tag", multiple=True, help="tags to assign to the file.")
 @click.option("-d", "--description", help="description of the file.")
 @click.option("--retrieve-urls", is_flag=True, help="retrieve urls")
@@ -193,6 +197,7 @@ def search(obj: GDetectContext = None, sha256: str = "", retrieve_urls: bool = F
 def waitfor(
     obj: GDetectContext = None,
     filename: str = "",
+    push_timeout: str = 30,
     timeout: int = 180,
     tag: Optional[List[str]] = None,
     description: str = "",
@@ -202,6 +207,7 @@ def waitfor(
     result = obj.client.waitfor(
         filename,
         bypass_cache=obj.no_cache,
+        push_timeout=push_timeout,
         timeout=timeout,
         tags=tag,
         description=description,

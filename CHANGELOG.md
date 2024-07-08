@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.7.0
+
+### Added
+
+* Add a timeout option on push methods
+* Enrich details in case of requests error
+
 ## v0.6.0
 
 ### Changed
