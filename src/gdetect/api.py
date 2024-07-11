@@ -74,7 +74,7 @@ SHA256_PATTERN = re.compile(r"[0-9a-f]{64}")
 TOKEN_PATTERN = re.compile(
     r"[0-9a-f]{8}-[0-9a-f]{8}-[0-9a-f]{8}-[0-9a-f]{8}-[0-9a-f]{8}"
 )
-GDETECT_USER_AGENT = "py-gdetect/0.6.0"
+GDETECT_USER_AGENT = "py-gdetect/0.7.0"
 
 
 @dataclass
@@ -116,7 +116,6 @@ class Client:
         self.url = urllib.parse.urljoin(url, BASE_ENDPOINT)
         self.token: str = token
         self._verify: bool = True
-        self.timeout: float = 30.0
         # check inputs
         self._check_token()
 
@@ -137,6 +136,7 @@ class Client:
         filename: str,
         reader: StreamReader,
         bypass_cache: bool = False,
+        timeout: float = 30,
         tags: tuple = (),
         description: str = None,
         archive_password: str = None,
@@ -174,6 +174,7 @@ class Client:
         resp = self._request(
             "post",
             path,
+            timeout=timeout,
             params=params,
             files=files,
         )
@@ -193,6 +194,7 @@ class Client:
         self,
         filename: str,
         bypass_cache: bool = False,
+        timeout: float = 30,
         tags: tuple = (),
         description: str = None,
         archive_password: str = None,
@@ -221,6 +223,7 @@ class Client:
                 pathlib.Path(filename).name,
                 reader,
                 bypass_cache,
+                timeout,
                 tags,
                 description,
                 archive_password,
@@ -278,6 +281,7 @@ class Client:
         filename: str,
         bypass_cache: bool = False,
         pull_time: float = 1.0,
+        push_timeout: float = 30,
         timeout: float = 180,
         tags: tuple = (),
         description: str = None,
@@ -309,6 +313,7 @@ class Client:
                 reader,
                 bypass_cache,
                 pull_time,
+                push_timeout,
                 timeout,
                 tags,
                 description,
@@ -321,6 +326,7 @@ class Client:
         reader: StreamReader,
         bypass_cache: bool = False,
         pull_time: float = 1,
+        push_timeout: float = 30,
         timeout: float = 180,
         tags: tuple = (),
         description: str = None,
@@ -353,6 +359,7 @@ class Client:
             filename,
             reader,
             bypass_cache=bypass_cache,
+            timeout=push_timeout,
             tags=tags,
             description=description,
             archive_password=archive_password,
@@ -435,7 +442,7 @@ class Client:
         if not TOKEN_PATTERN.match(self.token):
             raise BadAuthenticationTokenError("bad token format")
 
-    def _request(self, method: str, url: str, **kwargs) -> requests.Response:
+    def _request(self, method: str, url: str, headers: dict = {}, timeout: float = 30, **kwargs) -> requests.Response:
         """Process a request to URL with given method and params.
 
         This function execute the request to the URL with `requests` library.
@@ -450,15 +457,10 @@ class Client:
         Returns:
             Response: a :class:`~Response` object.
         """
-        # get request timeout
-        timeout = kwargs.pop("timeout", self.timeout)
-        headers = kwargs.pop("headers", {})
         # set auth token if not provided
         headers["X-Auth-Token"] = headers.get("X-Auth-Token", self.token)
         headers["User-Agent"] = GDETECT_USER_AGENT
-        resp = requests.request(
-            method, url, timeout=timeout, verify=self.verify, headers=headers, **kwargs
-        )
+        resp = requests.request(method, url, verify=self.verify, headers=headers, timeout=timeout, **kwargs)
         code = resp.status_code
         if code != 200:
             raise compute_exception_from_response(resp)
@@ -479,6 +481,8 @@ def compute_exception_from_response(resp: requests.Response) -> GDetectError:
     exc = HTTPExceptions.get(resp.status_code, GDetectError)
     try:
         msg = resp.json()
-        return exc(msg.get("error", ""))
+        error = msg.get("error", "")
+        details = msg.get("details", [""])[0]
+        return exc(f"{error}: {details}")
     except JSONDecodeError:
         return exc
