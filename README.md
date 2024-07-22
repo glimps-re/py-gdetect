@@ -2,7 +2,7 @@
 
 A Python client and a library for GLIMPS Gmalware detect.
 
-GLIMPS Gmalware detect is a solution from GLIMPS *Inc.* for a better detection of malware. Contact us at <contact@glimps.re> for more information !  
+GLIMPS Gmalware detect is a solution from GLIMPS *Inc.* for a better detection of malware. Contact us at <contact@glimps.re> for more information !
 
 ## Description
 
@@ -26,7 +26,7 @@ python3 -m pip install gdetect
 
 Before launch the tool, you can set the path to your GDetect URL and your authentication token into environment variables with:
 
-`export API_URL=https://my.gdetect.service.tld` for the URL;  
+`export API_URL=https://my.gdetect.service.tld` for the URL;
 `export API_TOKEN=abcdef01-23456789-abcdef01-23456789-abcdef01` for the token.
 
 You can use *gdetect* in your shell like this:
@@ -65,7 +65,7 @@ from gdetect import Client # direct object import set in __init__ file
 client=Client(url='https://path/to/my/gdetect/service', token='qwerty012345678')
 uuid=client.push('my_bad_binary.exe')
 # wait some minutes to get a result
-result=client.get(uuid)
+result=client.get_by_uuid(uuid)
 print(result)
 ```
 
