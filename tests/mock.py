@@ -28,6 +28,12 @@ class MockRequest:
         "sid": "7UZy0tbWPSTdNfkzKSW5gS",
         "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.XXX.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c",
     }
+    _content: bytes = b""
+
+    @property
+    def content(self) -> bytes:
+        """Return content of response"""
+        return self._content
 
     def json(self) -> dict:
         """Return json encoded information about the file
@@ -95,6 +101,21 @@ class Mock502(MockRequest):
 
     def json(self):
         raise requests.exceptions.JSONDecodeError("error", "error doc", 1)
+
+
+class MockCsvExport(MockRequest):
+    """Mock result of an CSV export"""
+
+    _content = bytes(
+        """Verdict,Score,Family,Filename,Submission date,User,Services list,Human filesize,SHA256
+malicious,1000,"[""formbook""]",file1,2024-11-07T10:21:18.094535Z,totoplop,"[""SignatureAvira""]",862.0 KiB,66bf8be06f87343143d379706b4b151adc3e555c6efabf7fdd84d07b5a1b1d38'""",
+        "utf-8",
+    )
+
+
+def mock_csv_export(*args, **kwargs):
+    """Return successfull csv export"""
+    return MockCsvExport()
 
 
 def mock_request(*args, **kwargs):

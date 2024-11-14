@@ -71,6 +71,7 @@ class GDetectContext:
 
 def catch_exceptions(func):
     """decorator to catch exceptions and raise a ClickException"""
+
     @wraps(func)
     def wrapper(*args, **kwargs):
         try:
@@ -189,7 +190,9 @@ def search(obj: GDetectContext = None, sha256: str = "", retrieve_urls: bool = F
 @click.pass_obj
 @click.argument("filename")
 @click.option("--push-timeout", default=30, help="timeout for the push request")
-@click.option("--timeout", default=180, help="set a timeout for gmalware analysis in seconds")
+@click.option(
+    "--timeout", default=180, help="set a timeout for gmalware analysis in seconds"
+)
 @click.option("-t", "--tag", multiple=True, help="tags to assign to the file.")
 @click.option("-d", "--description", help="description of the file.")
 @click.option("--retrieve-urls", is_flag=True, help="retrieve urls")
@@ -242,6 +245,39 @@ def status(obj: GDetectContext = None):
     result = obj.client.get_status()
     rich.print_json(data=result.to_dict())
 
+
+@gdetect.command("export")
+@click.pass_obj
+@click.argument("uuid")
+@click.option(
+    "--format", help="export format (one of: [misp, stix, json, pdf, markdown, csv])"
+)
+@click.option("--layout", help="report's language layout: fr or en")
+@click.option(
+    "-o", "--output",
+    default="/tmp/glimps_export",
+    help="Location where to save exported analysis",
+)
+@click.option(
+    "--full",
+    is_flag=True,
+    default=False,
+    help="export full analysis instead of summarized",
+)
+@catch_exceptions
+def export(
+    obj: GDetectContext = None,
+    uuid: str = "",
+    format: str = "",
+    layout: str = "",
+    output: str = "",
+    full: bool = False,
+):
+    """export analysis in the requested format."""
+    data = obj.client.export_result(uuid, format, layout, full)
+    with open(output, "wb") as f:
+        f.write(data) # Write bytes to file
+    print("saved file to:", output)
 
 if __name__ == "__main__":
     gdetect()

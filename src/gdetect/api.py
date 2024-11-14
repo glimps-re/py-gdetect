@@ -38,6 +38,7 @@ import pathlib
 import time
 import urllib.parse
 import re
+import os
 
 import requests
 import urllib3
@@ -60,6 +61,8 @@ from .exceptions import (
     ResultNotFoundError,
     TooManyRequestsError,
     UnauthorizedAccessError,
+    BadExportFormatError,
+    BadLayoutError,
 )
 from .stream import StreamReader
 
@@ -426,6 +429,52 @@ class Client:
             self.base_url, f"/expert/en/analysis/advanced/{sid}"
         )
 
+    def export_result(
+        self, uuid: str, format: str, layout: str, full: bool = False
+    ) -> bytes:
+        """Export analysis result with the requested layout and format
+
+        Args:
+            uuid (str): unique id of analysis to export
+            format (str): export format (one of: [misp, stix, json, pdf, markdown, csv])
+            layout (str): defines the report's language layout: fr or en
+            full (bool, optional): defines if export must be full analysis or summarized
+
+        Returns:
+            result: exported analysis in the requested format
+
+        Raises:
+            exceptions.GDetectError: An error occurs.
+        """
+        # check inputs
+        self._check_uuid(uuid)
+        self._check_export_format(format)
+        self._check_layout(layout)
+
+        # prepare request
+        params = {
+            "format": format,
+            "layout": layout,
+            "full": full,
+        }
+        path = os.path.join(self.url, "results", uuid, "export")
+
+        # send request
+        resp = self._request(
+            "get",
+            path,
+            params=params,
+        )
+        return resp.content
+
+    def _check_export_format(self, format: str):
+        if format not in ["misp", "stix", "json", "pdf", "markdown", "csv"]:
+            raise BadExportFormatError
+
+    def _check_layout(self, layout: str):
+        if layout not in ["fr", "en"]:
+            raise BadLayoutError
+
     def _check_uuid(self, uuid: str):
         if not UUID_PATTERN.match(uuid):
             raise BadUUIDError
@@ -442,7 +491,9 @@ class Client:
         if not TOKEN_PATTERN.match(self.token):
             raise BadAuthenticationTokenError("bad token format")
 
-    def _request(self, method: str, url: str, headers: dict = {}, timeout: float = 30, **kwargs) -> requests.Response:
+    def _request(
+        self, method: str, url: str, headers: dict = {}, timeout: float = 30, **kwargs
+    ) -> requests.Response:
         """Process a request to URL with given method and params.
 
         This function execute the request to the URL with `requests` library.
@@ -460,7 +511,9 @@ class Client:
         # set auth token if not provided
         headers["X-Auth-Token"] = headers.get("X-Auth-Token", self.token)
         headers["User-Agent"] = GDETECT_USER_AGENT
-        resp = requests.request(method, url, verify=self.verify, headers=headers, timeout=timeout, **kwargs)
+        resp = requests.request(
+            method, url, verify=self.verify, headers=headers, timeout=timeout, **kwargs
+        )
         code = resp.status_code
         if code != 200:
             raise compute_exception_from_response(resp)

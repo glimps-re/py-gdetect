@@ -69,3 +69,11 @@ class InternalServerError(GDetectError):
 
 class GDetectTimeoutError(GDetectError):
     """Timeout during API call"""
+
+
+class BadExportFormatError(GDetectError):
+    """Bad export format value"""
+
+
+class BadLayoutError(GDetectError):
+    """Bad layout value"""

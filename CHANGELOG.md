@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.8.0
+
+### Added
+
+* Export command : allow to export submisssion result in a given format and layout, full or summarized
+
 ## v0.7.0
 
 ### Added

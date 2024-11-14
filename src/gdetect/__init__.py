@@ -4,6 +4,8 @@ from .exceptions import (
     BadAuthenticationTokenError,
     BadSHA256Error,
     BadUUIDError,
+    BadExportFormatError,
+    BadLayoutError
 )
 
 
@@ -13,4 +15,6 @@ __all__ = [
     "BadAuthenticationTokenError",
     "BadSHA256Error",
     "BadUUIDError",
+    "BadExportFormatError",
+    "BadLayoutError"
 ]
