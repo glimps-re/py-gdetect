@@ -13,6 +13,7 @@ from .mock import (
     mock_request_nonexisting_resource,
     mock_request_invalid_file,
     mock_request_502,
+    mock_csv_export,
 )
 
 
@@ -291,9 +292,7 @@ def test_invalid_response_from_server_push(monkeypatch: pytest.MonkeyPatch):
     client = get_api_client()
     with pytest.raises(exceptions.GDetectError):
         client.push(TEST_FILE)
-    monkeypatch.setattr(
-        requests, "request", mock_request_custom(200, {"test": True}, True)
-    )
+    monkeypatch.setattr(requests, "request", mock_request_custom(200, {"test": True}, True))
     client = get_api_client()
     with pytest.raises(exceptions.GDetectError):
         client.push(TEST_FILE)
@@ -357,3 +356,39 @@ def test_get_status(monkeypatch: pytest.MonkeyPatch):
     assert status.estimated_analysis_duration == 9642
     assert status.to_dict() == result_status
 
+
+def test_export_bad_format():
+    """Test bad export format raises an error"""
+    uuid = "eff8b042-3e70-4ea3-8f83-f9e67c217d3f"
+    client = get_api_client()
+    with pytest.raises(exceptions.BadExportFormatError):
+        client.export_result(uuid, format="docx", layout="")
+
+
+def test_export_bad_layout():
+    """Test bad export layout raises an error"""
+    uuid = "eff8b042-3e70-4ea3-8f83-f9e67c217d3f"
+    client = get_api_client()
+    with pytest.raises(exceptions.BadLayoutError):
+        client.export_result(uuid, format="csv", layout="toto")
+
+
+def test_export_ok(monkeypatch: pytest.MonkeyPatch):
+    """Test export works"""
+    uuid = "eff8b042-3e70-4ea3-8f83-f9e67c217d3f"
+    monkeypatch.setattr(requests, "request", mock_csv_export)
+    client = get_api_client()
+    export = client.export_result(uuid, format="csv", layout="en")
+    assert isinstance(export, bytes)
+    assert "Verdict,Score,Family,Filename,Submission date,User,Services list,Human filesize,SHA256" in export.decode(
+        "utf-8"
+    )
+
+
+def test_export_server_error(monkeypatch: pytest.MonkeyPatch):
+    """Test server error on export"""
+    uuid = "eff8b042-3e70-4ea3-8f83-f9e67c217d3f"
+    monkeypatch.setattr(requests, "request", mock_request_502)
+    client = get_api_client()
+    with pytest.raises(exceptions.GDetectError):
+        client.export_result(uuid, format="csv", layout="fr")

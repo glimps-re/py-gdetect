@@ -38,6 +38,7 @@ import pathlib
 import time
 import urllib.parse
 import re
+import os
 
 import requests
 import urllib3
@@ -60,22 +61,19 @@ from .exceptions import (
     ResultNotFoundError,
     TooManyRequestsError,
     UnauthorizedAccessError,
+    BadExportFormatError,
+    BadLayoutError,
 )
 from .stream import StreamReader
+from .consts import GDETECT_USER_AGENT, EXPORT_LAYOUTS, EXPORT_FORMATS
 
 logger = get_logger()
 
 BASE_ENDPOINT = "/api/lite/v2"
 
-UUID_PATTERN = re.compile(
-    r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
-)
+UUID_PATTERN = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
 SHA256_PATTERN = re.compile(r"[0-9a-f]{64}")
-TOKEN_PATTERN = re.compile(
-    r"[0-9a-f]{8}-[0-9a-f]{8}-[0-9a-f]{8}-[0-9a-f]{8}-[0-9a-f]{8}"
-)
-GDETECT_USER_AGENT = "py-gdetect/0.7.0"
-
+TOKEN_PATTERN = re.compile(r"[0-9a-f]{8}-[0-9a-f]{8}-[0-9a-f]{8}-[0-9a-f]{8}-[0-9a-f]{8}")
 
 @dataclass
 class Status:
@@ -405,9 +403,7 @@ class Client:
         token = resp.get("token", "")
         if token == "":
             raise MissingTokenError()
-        return urllib.parse.urljoin(
-            self.base_url, f"/expert/en/analysis-redirect/{token}"
-        )
+        return urllib.parse.urljoin(self.base_url, f"/expert/en/analysis-redirect/{token}")
 
     def extract_expert_url(self, resp: dict) -> str:
         """Extract expert view from response.
@@ -422,9 +418,51 @@ class Client:
         sid = resp.get("sid", "")
         if sid == "":
             raise MissingSIDError()
-        return urllib.parse.urljoin(
-            self.base_url, f"/expert/en/analysis/advanced/{sid}"
+        return urllib.parse.urljoin(self.base_url, f"/expert/en/analysis/advanced/{sid}")
+
+    def export_result(self, uuid: str, format: str, layout: str, full: bool = False) -> bytes:
+        """Export analysis result with the requested layout and format
+
+        Args:
+            uuid (str): unique id of analysis to export
+            format (str): export format (one of: [misp, stix, json, pdf, markdown, csv])
+            layout (str): defines the report's language layout: fr or en
+            full (bool, optional): defines if export must be full analysis or summarized
+
+        Returns:
+            result: exported analysis in the requested format
+
+        Raises:
+            exceptions.GDetectError: An error occurs.
+        """
+        # check inputs
+        self._check_uuid(uuid)
+        self._check_export_format(format)
+        self._check_layout(layout)
+
+        # prepare request
+        params = {
+            "format": format,
+            "layout": layout,
+            "full": full,
+        }
+        path = os.path.join(self.url, "results", uuid, "export")
+
+        # send request
+        resp = self._request(
+            "get",
+            path,
+            params=params,
         )
+        return resp.content
+
+    def _check_export_format(self, format: str):
+        if format not in EXPORT_FORMATS:
+            raise BadExportFormatError
+
+    def _check_layout(self, layout: str):
+        if layout not in EXPORT_LAYOUTS:
+            raise BadLayoutError
 
     def _check_uuid(self, uuid: str):
         if not UUID_PATTERN.match(uuid):

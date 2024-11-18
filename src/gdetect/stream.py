@@ -1,6 +1,7 @@
 """
 stream declare interface to be used for BufferIO or other kind of readers
 """
+
 from typing import Protocol, Optional
 
 
@@ -17,4 +18,5 @@ class StreamReader(Protocol):
 
 class StreamReaderSeeker(StreamReader, Protocol):
     """StreamReaderSeeker implements read, readinto and seek methods"""
+
     def seek(self, offset: int, whence: int): ...

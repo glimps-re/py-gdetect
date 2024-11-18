@@ -4,6 +4,8 @@ GDetectError is for all external calls.
 All other exceptions are for internal use.
 """
 
+from .consts import EXPORT_LAYOUTS, EXPORT_FORMATS
+
 
 class GDetectError(Exception):
     """global error for external return"""
@@ -69,3 +71,11 @@ class InternalServerError(GDetectError):
 
 class GDetectTimeoutError(GDetectError):
     """Timeout during API call"""
+
+
+class BadExportFormatError(GDetectError):
+    __doc__ = f"Bad export format value (must be one of {EXPORT_FORMATS})"
+
+
+class BadLayoutError(GDetectError):
+    __doc__ = f"Bad layout value (lust be one of {EXPORT_LAYOUTS})"

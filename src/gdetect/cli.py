@@ -29,6 +29,7 @@ from dataclasses import dataclass
 from functools import wraps
 import logging
 import os
+import sys
 from typing import List, Optional
 
 import click
@@ -44,6 +45,7 @@ from .exceptions import (
     MissingSIDError,
     MissingTokenError,
 )
+from .consts import EXPORT_LAYOUTS, EXPORT_FORMATS
 
 # initialize rich Console for pretty print
 console = Console()
@@ -71,14 +73,13 @@ class GDetectContext:
 
 def catch_exceptions(func):
     """decorator to catch exceptions and raise a ClickException"""
+
     @wraps(func)
     def wrapper(*args, **kwargs):
         try:
             return func(*args, **kwargs)
         except MissingSchema as exc:
-            raise click.ClickException(
-                "Invalid or no URL provided to reach GMalware detect API"
-            ) from exc
+            raise click.ClickException("Invalid or no URL provided to reach GMalware detect API") from exc
         except GDetectError as e:
             raise click.ClickException(e) from e
 
@@ -241,6 +242,42 @@ def status(obj: GDetectContext = None):
     """Get Detect profile status"""
     result = obj.client.get_status()
     rich.print_json(data=result.to_dict())
+
+
+@gdetect.command("export")
+@click.pass_obj
+@click.argument("uuid")
+@click.option("--format", help=f"export format (one of: {EXPORT_FORMATS})")
+@click.option("--layout", help=f"report's language layout: {EXPORT_LAYOUTS}")
+@click.option(
+    "-o",
+    "--output",
+    default="",
+    help="Location where to save exported analysis",
+)
+@click.option(
+    "--full",
+    is_flag=True,
+    default=False,
+    help="export full analysis instead of summarized",
+)
+@catch_exceptions
+def export(
+    obj: GDetectContext = None,
+    uuid: str = "",
+    format: str = "",
+    layout: str = "",
+    output: str = "",
+    full: bool = False,
+):
+    """export analysis in the requested format."""
+    data = obj.client.export_result(uuid, format, layout, full)
+    if output == "":
+        sys.stdout.write(data.decode())
+        return
+    with open(output, "wb") as f:
+        f.write(data)  # Write bytes to file
+    print("saved file to:", output)
 
 
 if __name__ == "__main__":

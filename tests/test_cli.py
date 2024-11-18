@@ -4,7 +4,7 @@ import pytest
 import requests
 from click.testing import CliRunner
 from gdetect.cli import gdetect
-from .mock import mock_request, mock_request_custom
+from .mock import mock_request, mock_request_custom, mock_csv_export
 from .test_api import TEST_FILE
 
 
@@ -88,18 +88,14 @@ def test_send_file_with_password(runner: CliRunner):
     assert len(result.output) > 35
 
 
-def test_get_existing_result_by_uuid(
-    runner: CliRunner, uuid="9d488d01-23d5-4b9f-894e-c920ea732603"
-):
+def test_get_existing_result_by_uuid(runner: CliRunner, uuid="9d488d01-23d5-4b9f-894e-c920ea732603"):
     """Test get of existing result by file uuid"""
     result = runner.invoke(gdetect, f"--insecure get {uuid}")
     assert result.exit_code == 0
     assert len(result.output) > 35
 
 
-def test_get_existing_result_by_uuid_and_urls(
-    runner: CliRunner, uuid="9d488d01-23d5-4b9f-894e-c920ea732603"
-):
+def test_get_existing_result_by_uuid_and_urls(runner: CliRunner, uuid="9d488d01-23d5-4b9f-894e-c920ea732603"):
     """Test get of existing result by file uuid"""
     result = runner.invoke(gdetect, f"--insecure get {uuid} --retrieve-urls")
     assert result.exit_code == 0
@@ -173,6 +169,14 @@ def test_status(runner: CliRunner, monkeypatch: pytest.MonkeyPatch):
     """Test get profile status"""
     monkeypatch.setattr(requests, "request", mock_request_custom(200, {}, True))
     result = runner.invoke(gdetect, "status")
+    assert result.exit_code == 0
+
+
+def test_export(runner: CliRunner, monkeypatch: pytest.MonkeyPatch):
+    """Test export submission result"""
+    uuid = "9d488d01-23d5-4b9f-894e-c920ea732603"
+    monkeypatch.setattr(requests, "request", mock_csv_export)
+    result = runner.invoke(gdetect, f"export {uuid} --format csv --layout en")
     assert result.exit_code == 0
 
 
