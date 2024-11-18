@@ -5,7 +5,7 @@ from .exceptions import (
     BadSHA256Error,
     BadUUIDError,
     BadExportFormatError,
-    BadLayoutError
+    BadLayoutError,
 )
 
 
@@ -16,5 +16,5 @@ __all__ = [
     "BadSHA256Error",
     "BadUUIDError",
     "BadExportFormatError",
-    "BadLayoutError"
+    "BadLayoutError",
 ]

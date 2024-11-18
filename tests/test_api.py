@@ -292,9 +292,7 @@ def test_invalid_response_from_server_push(monkeypatch: pytest.MonkeyPatch):
     client = get_api_client()
     with pytest.raises(exceptions.GDetectError):
         client.push(TEST_FILE)
-    monkeypatch.setattr(
-        requests, "request", mock_request_custom(200, {"test": True}, True)
-    )
+    monkeypatch.setattr(requests, "request", mock_request_custom(200, {"test": True}, True))
     client = get_api_client()
     with pytest.raises(exceptions.GDetectError):
         client.push(TEST_FILE)
@@ -382,9 +380,8 @@ def test_export_ok(monkeypatch: pytest.MonkeyPatch):
     client = get_api_client()
     export = client.export_result(uuid, format="csv", layout="en")
     assert isinstance(export, bytes)
-    assert (
-        "Verdict,Score,Family,Filename,Submission date,User,Services list,Human filesize,SHA256"
-        in export.decode("utf-8")
+    assert "Verdict,Score,Family,Filename,Submission date,User,Services list,Human filesize,SHA256" in export.decode(
+        "utf-8"
     )
 
 

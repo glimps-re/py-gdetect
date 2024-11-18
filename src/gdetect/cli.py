@@ -29,6 +29,7 @@ from dataclasses import dataclass
 from functools import wraps
 import logging
 import os
+import sys
 from typing import List, Optional
 
 import click
@@ -44,6 +45,7 @@ from .exceptions import (
     MissingSIDError,
     MissingTokenError,
 )
+from .consts import EXPORT_LAYOUTS, EXPORT_FORMATS
 
 # initialize rich Console for pretty print
 console = Console()
@@ -77,9 +79,7 @@ def catch_exceptions(func):
         try:
             return func(*args, **kwargs)
         except MissingSchema as exc:
-            raise click.ClickException(
-                "Invalid or no URL provided to reach GMalware detect API"
-            ) from exc
+            raise click.ClickException("Invalid or no URL provided to reach GMalware detect API") from exc
         except GDetectError as e:
             raise click.ClickException(e) from e
 
@@ -190,9 +190,7 @@ def search(obj: GDetectContext = None, sha256: str = "", retrieve_urls: bool = F
 @click.pass_obj
 @click.argument("filename")
 @click.option("--push-timeout", default=30, help="timeout for the push request")
-@click.option(
-    "--timeout", default=180, help="set a timeout for gmalware analysis in seconds"
-)
+@click.option("--timeout", default=180, help="set a timeout for gmalware analysis in seconds")
 @click.option("-t", "--tag", multiple=True, help="tags to assign to the file.")
 @click.option("-d", "--description", help="description of the file.")
 @click.option("--retrieve-urls", is_flag=True, help="retrieve urls")
@@ -249,13 +247,12 @@ def status(obj: GDetectContext = None):
 @gdetect.command("export")
 @click.pass_obj
 @click.argument("uuid")
+@click.option("--format", help=f"export format (one of: {EXPORT_FORMATS})")
+@click.option("--layout", help=f"report's language layout: {EXPORT_LAYOUTS}")
 @click.option(
-    "--format", help="export format (one of: [misp, stix, json, pdf, markdown, csv])"
-)
-@click.option("--layout", help="report's language layout: fr or en")
-@click.option(
-    "-o", "--output",
-    default="/tmp/glimps_export",
+    "-o",
+    "--output",
+    default="",
     help="Location where to save exported analysis",
 )
 @click.option(
@@ -275,9 +272,13 @@ def export(
 ):
     """export analysis in the requested format."""
     data = obj.client.export_result(uuid, format, layout, full)
+    if output == "":
+        sys.stdout.write(data.decode())
+        return
     with open(output, "wb") as f:
-        f.write(data) # Write bytes to file
+        f.write(data)  # Write bytes to file
     print("saved file to:", output)
+
 
 if __name__ == "__main__":
     gdetect()
