@@ -86,7 +86,7 @@ def catch_exceptions(func):
     return wrapper
 
 
-@click.group(cls=DefaultGroup, default="", default_if_no_args=False)
+@click.group(cls=DefaultGroup, default="send", default_if_no_args=False)
 @click.option("--url", default="", help="url to GLIMPS Detect API")
 @click.option("--token", default="", help="authentication token")
 @click.option("--password", default="", help="password used to extract archive")
