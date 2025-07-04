@@ -36,7 +36,7 @@ def runner():
 
 def test_empty_run(runner: CliRunner):
     """Test empty run of the cli."""
-    result = runner.invoke(gdetect, [""])
+    result = runner.invoke(gdetect, None)
     assert result.exit_code == 2
 
 
