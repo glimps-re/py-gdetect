@@ -31,7 +31,7 @@ def with_api_env(monkeypatch):
 @pytest.fixture
 def runner():
     """define a CliRunner"""
-    return CliRunner(mix_stderr=False)
+    return CliRunner()
 
 
 def test_empty_run(runner: CliRunner):
