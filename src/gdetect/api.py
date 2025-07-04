@@ -75,6 +75,7 @@ UUID_PATTERN = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9
 SHA256_PATTERN = re.compile(r"[0-9a-f]{64}")
 TOKEN_PATTERN = re.compile(r"[0-9a-f]{8}-[0-9a-f]{8}-[0-9a-f]{8}-[0-9a-f]{8}-[0-9a-f]{8}")
 
+
 @dataclass
 class Status:
     """Detect profile status
@@ -284,7 +285,7 @@ class Client:
         tags: tuple = (),
         description: str = None,
         archive_password: str = None,
-    ) -> object:
+    ) -> dict:
         """Send a file to GLIMPS Detect and wait for a result.
 
         This function is an 'all-in-one' for sending and getting result.
@@ -300,7 +301,7 @@ class Client:
             archive_password (str, optional) : If filled, the password used to extract archive
 
         Returns:
-            result (object): The json-encoded content of a response, if any.
+            result (dict): The json-encoded content of a response, if any.
 
         Raises:
             exceptions.GDetectError: An error occurs.
@@ -329,7 +330,7 @@ class Client:
         tags: tuple = (),
         description: str = None,
         archive_password: str = None,
-    ) -> object:
+    ) -> dict:
         """Send a file to GLIMPS Detect and wait for a result (using reader).
 
         This function is an 'all-in-one' for sending and getting result.
@@ -346,7 +347,7 @@ class Client:
             archive_password (str, optional) : If filled, the password used to extract archive
 
         Returns:
-            result (object): The json-encoded content of a response, if any.
+            result (dict): The json-encoded content of a response, if any.
 
         Raises:
             exceptions.GDetectError: An error occurs.
