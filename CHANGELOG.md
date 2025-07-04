@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.8.1
+
+### Fixed
+
+* Restore creation of gdetect cli tool at package installation
+
 ## v0.8.0
 
 ### Added

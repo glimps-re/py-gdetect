@@ -115,3 +115,6 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
 ]
+
+[project.scripts]
+gdetect = "gdetect.cli:gdetect"
