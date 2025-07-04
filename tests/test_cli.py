@@ -31,12 +31,12 @@ def with_api_env(monkeypatch):
 @pytest.fixture
 def runner():
     """define a CliRunner"""
-    return CliRunner(mix_stderr=False)
+    return CliRunner()
 
 
 def test_empty_run(runner: CliRunner):
     """Test empty run of the cli."""
-    result = runner.invoke(gdetect, [""])
+    result = runner.invoke(gdetect, None)
     assert result.exit_code == 2
 
 
