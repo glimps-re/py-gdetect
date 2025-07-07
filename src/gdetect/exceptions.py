@@ -78,4 +78,4 @@ class BadExportFormatError(GDetectError):
 
 
 class BadLayoutError(GDetectError):
-    __doc__ = f"Bad layout value (lust be one of {EXPORT_LAYOUTS})"
+    __doc__ = f"Bad layout value (must be one of {EXPORT_LAYOUTS})"
