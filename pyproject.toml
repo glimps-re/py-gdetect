@@ -1,3 +1,52 @@
+[project]
+name = "gdetect"
+version = "0.9.0"
+authors = [
+  { name="GLIMPS dev core team", email="contact@glimps.re" },
+]
+description = "Library and CLI for GLIMPS Detect API"
+keywords=["python", "glimps", "detection", "gmalware", "malware", "gdetect"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Programming Language :: Python :: 3",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+readme = "README.md"
+
+requires-python = ">=3.10"
+dependencies = [
+    "click~=8.0",
+    "click-default-group~=1.2",
+    "requests~=2.32",
+    "rich~=14.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest==8.1.1",
+    "pytest-cov==4.1.0",
+]
+
+[project.scripts]
+gdetect = "gdetect.cli:gdetect"
+
+# Build project
+[build-system]
+requires = ["setuptools>=65.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.package-data]
+gdetect = ["py.typed"]
+[tool.setuptools.packages.find]
+where = ["src"]
+
 [tool.ruff]
 # Exclude a variety of commonly ignored directories.
 exclude = [
@@ -76,44 +125,3 @@ docstring-code-format = false
 # This only has an effect when the `docstring-code-format` setting is
 # enabled.
 docstring-code-line-length = "dynamic"
-
-[tool.setuptools.package-data]
-gdetect = ["py.typed"]
-[tool.setuptools.packages.find]
-where = ["src"]
-
-# Build project
-[build-system]
-requires = ["setuptools>=65.0"]
-build-backend = "setuptools.build_meta"
-[project]
-name = "gdetect"
-version = "0.8.1"
-authors = [
-  { name="GLIMPS dev core team", email="contact@glimps.re" },
-]
-description = "Library and CLI for GLIMPS Detect API"
-readme = "README.md"
-dependencies = [
-    "click~=8.0",
-    "click-default-group~=1.2",
-    "requests~=2.32",
-    "rich~=14.1",
-]
-requires-python = ">=3.10"
-keywords=["python", "glimps", "detection", "gmalware", "malware", "gdetect"]
-classifiers = [
-    "Development Status :: 5 - Production/Stable",
-    "Programming Language :: Python :: 3",
-    "Operating System :: MacOS :: MacOS X",
-    "Operating System :: Microsoft :: Windows",
-    "Operating System :: POSIX :: Linux",
-    "License :: OSI Approved :: MIT License",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
-]
-
-[project.scripts]
-gdetect = "gdetect.cli:gdetect"
