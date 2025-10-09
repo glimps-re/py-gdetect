@@ -98,7 +98,7 @@ dependencies = [
     "click~=8.0",
     "click-default-group~=1.2",
     "requests~=2.32",
-    "rich~=11.0",
+    "rich~=14.1",
 ]
 requires-python = ">=3.10"
 keywords=["python", "glimps", "detection", "gmalware", "malware", "gdetect"]

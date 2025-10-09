@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.9.0
+
+### Changed
+
+* Bump rich version to ~=14.1
+
 ## v0.8.1
 
 ### Fixed
