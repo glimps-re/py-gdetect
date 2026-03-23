@@ -16,7 +16,15 @@ def get_console_handler():
 
 
 def get_logger(name="GLIMPS-DETECT", level=logging.WARNING):
-    """return the logger (is already a singleton)"""
+    """Return the package logger.
+
+    Args:
+        name (str): Logger name. Defaults to ``"GLIMPS-DETECT"``.
+        level (int): Logging level. Defaults to ``logging.WARNING``.
+
+    Returns:
+        logging.Logger: Configured logger instance.
+    """
     logger = logging.getLogger(name)
     logger.setLevel(level)
     logger.addHandler(get_console_handler())

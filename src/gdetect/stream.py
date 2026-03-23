@@ -1,6 +1,4 @@
-"""
-stream declare interface to be used for BufferIO or other kind of readers
-"""
+"""Stream protocols for readable file-like objects (e.g. BufferedIOBase)."""
 
 from typing import Protocol, Optional
 
