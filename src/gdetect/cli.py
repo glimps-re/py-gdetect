@@ -12,7 +12,7 @@ Usage: python -m gdetect [OPTIONS] COMMAND [ARGS]...
 Options:
   --url TEXT    url to GLIMPS Detect API
   --token TEXT  authentication token
-  --password TEXT passord used to extract archive
+  --password TEXT password used to extract archive
   --insecure    disable HTTPS check
   --no-cache    submit file even if a result already exists
   --help        Show this message and exit.
@@ -220,8 +220,8 @@ def waitfor(
 
 
 @click.pass_obj
-def print_urls(obj: GDetectContext = None, result: object = None):
-    """Print url for token and analysis view"""
+def print_urls(obj: GDetectContext = None, result: dict = None):
+    """Print the token view and expert analysis URLs for a result."""
     try:
         url_token_view = obj.client.extract_url_token_view(result)
         console.print("TOKEN VIEW URL: ", url_token_view)

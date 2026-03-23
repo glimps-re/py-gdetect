@@ -149,7 +149,7 @@ def mock_request_502(*args, **kwargs):
 
 
 def mock_request_invalid_200(*args, **kwargs):
-    """Return http 502 mock request"""
+    """Return an HTTP 200 mock response with an invalid (non-JSON) body."""
     m = Mock502()
     m.status_code = 200
     m.ok = True
@@ -157,6 +157,7 @@ def mock_request_invalid_200(*args, **kwargs):
 
 
 def mock_request_custom(status_code: int, json: Any, ok: bool):
+    """Return a factory for mock requests with custom status, body, and ok flag."""
     m = MockRequest()
     m.status_code = status_code
     m._json = json

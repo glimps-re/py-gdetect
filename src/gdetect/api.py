@@ -1,35 +1,24 @@
-"""Api is a module to connect to GLIMPS detect service.
+"""Api is a module to connect to GLIMPS Detect service.
 
-This module helps to use GLIMPS detect. Main parameters are the token and the url.
-If no token is given to constructor, the Api class tries to get the 'API_TOKEN' environment variable.
-If this variable doesn't exist, a exception is raised.
-
-The behavior is similar for url: tries to get environment variable 'API_URL' or raises exception.
+This module helps to use GLIMPS Detect. The Client class requires a url and a token.
 
 Usage examples:
 
 >>> client = Client(API_URL, API_TOKEN)
 >>> client.push('malware.elf')
-9d488d01-23d5-4b9f-894e-c920ea732603
->>> client.get('9d488d01-23d5-4b9f-894e-c920ea732603')
+'9d488d01-23d5-4b9f-894e-c920ea732603'
+>>> client.get_by_uuid('9d488d01-23d5-4b9f-894e-c920ea732603')
 {
     'uuid': '9d488d01-23d5-4b9f-894e-c920ea732603',
     'sha256': '7850d6e51ef6d0bc8c8c1903a24c22a090516afa6f3b4db6e4b3e6dd44462a99',
     'sha1': 'e0b77bdd78bf3215221298475c88fb23e4e84f98',
     'md5': 'e1c080be1a748d69246ad9c766ad8809',
-    'ssdeep': '384:MCDKKQOcRpmYLdn6RBOFRFt5rUFX1DiSIlCo3AnupCFNqnrrd1NEZgO8UXWozPLL:
-P/QOC0Yhn6ROHWFlAcwNEFCnNBxc6nc/',
     'is_malware': True,
     'score': 3000,
     'done': True,
-    'timestamp': 0,
     'filetype': 'elf',
     'size': 24728,
-    'filenames': ['sha256'],
-    'files': [
-        {...
-        }
-    ], 'sid': '7UZy0tbWPSTdNfkzKSW5gS', ...
+    ...
 }
 """
 
@@ -98,16 +87,18 @@ class Status:
 
 
 class Client:
-    """Client class builds an object to interact with url.
+    """Client to interact with the GLIMPS Detect API.
 
-    The constructor takes 2 parameters: 'url' and 'token'.
-
-    Attributes:
+    Args:
         url (str): URL of the API.
         token (str): The authentication token.
-        verify (bool): If `False`, this bypass SSL checks. *Only for testing*.
-                       **Not recommended in production !**
-        response (Response): A Response dataclass with detailed return.
+
+    Attributes:
+        base_url (str): The original URL passed to the constructor.
+        url (str): The full API endpoint URL.
+        token (str): The authentication token.
+        verify (bool): If ``False``, bypass SSL certificate checks.
+            **Not recommended in production.**
     """
 
     def __init__(self, url: str, token: str):
@@ -140,23 +131,24 @@ class Client:
         description: str = None,
         archive_password: str = None,
     ) -> str:
-        """Push a file to API endpoint (using reader).
+        """Push a file to the API endpoint using a reader.
 
         Args:
-            filename (str): name of submitted file.
-            bypass_cache (bool, optional):
-                If True, the file is analyzed, even if a result already exists.
-            tags (tuple, optional): If filled, the file will be tagged with those tags.
-            description (str, optional): If filled, a description will be added to the analysis.
-            archive_password (str, optional) : If filled, the password used to extract archive.
+            filename (str): Name of the submitted file.
+            reader (StreamReader): A readable stream providing the file content.
+            bypass_cache (bool, optional): If True, the file is analyzed even if
+                a result already exists.
+            timeout (float, optional): Request timeout in seconds. Defaults to 30.
+            tags (tuple, optional): Tags to assign to the file.
+            description (str, optional): Description to attach to the analysis.
+            archive_password (str, optional): Password used to extract archive.
 
         Returns:
-            uuid (str): unique id of analysis
+            str: UUID of the submitted analysis.
 
         Raises:
-            GDetectError: GMalware server returned an error.
-            OSError: there was an error with the input file.
-            requests.RequestException: there was an error reaching GMalware server
+            GDetectError: GLIMPS Detect server returned an error.
+            requests.RequestException: There was an error reaching the server.
         """
 
         # prepare request
@@ -198,23 +190,24 @@ class Client:
         description: str = None,
         archive_password: str = None,
     ) -> str:
-        """Push a file to API endpoint.
+        """Push a file to the API endpoint.
 
         Args:
-            filename (str): Fullpath of submitted file.
-            bypass_cache (bool, optional):
-                If True, the file is analyzed, even if a result already exists.
-            tags (tuple, optional): If filled, the file will be tagged with those tags.
-            description (str, optional): If filled, a description will be added to the analysis.
-            archive_password (str, optional) : If filled, the password used to extract archive.
+            filename (str): Full path of the file to submit.
+            bypass_cache (bool, optional): If True, the file is analyzed even if
+                a result already exists.
+            timeout (float, optional): Request timeout in seconds. Defaults to 30.
+            tags (tuple, optional): Tags to assign to the file.
+            description (str, optional): Description to attach to the analysis.
+            archive_password (str, optional): Password used to extract archive.
 
         Returns:
-            uuid (str): unique id of analysis
+            str: UUID of the submitted analysis.
 
         Raises:
-            GDetectError: GMalware server returned an error.
-            OSError: there was an error with the input file.
-            requests.RequestException: there was an error reaching GMalware server
+            GDetectError: GLIMPS Detect server returned an error.
+            FileNotFoundError: The file does not exist.
+            requests.RequestException: There was an error reaching the server.
         """
 
         with open(filename, "rb") as reader:
@@ -229,16 +222,18 @@ class Client:
             )
 
     def get_by_sha256(self, sha256: str) -> dict:
-        """Retrieve analysis result using file sha256
+        """Retrieve analysis result using file SHA256.
 
         Args:
-            sha256 (str): sha256 of the file
-
-        Raises:
-            exceptions.GDetectError: An error occured.
+            sha256 (str): SHA256 hash of the file.
 
         Returns:
-            dict: The json-encoded content of a response, if any.
+            dict: Analysis result.
+
+        Raises:
+            BadSHA256Error: The SHA256 value is invalid.
+            ResultNotFoundError: No result found for the given SHA256.
+            GDetectError: An error occurred.
         """
         # check inputs
         self._check_sha256(sha256)
@@ -252,16 +247,18 @@ class Client:
         return response.json()
 
     def get_by_uuid(self, uuid: str) -> dict:
-        """Retrieve analysis result using analysis uuid
+        """Retrieve analysis result using analysis UUID.
 
         Args:
-            uuid (str): identification number of submitted file.
+            uuid (str): UUID of the submitted analysis.
 
         Returns:
-            result (dict): The json-encoded content of a response, if any.
+            dict: Analysis result.
 
         Raises:
-            exceptions.GDetectError: An error occured.
+            BadUUIDError: The UUID value is invalid.
+            ResultNotFoundError: No result found for the given UUID.
+            GDetectError: An error occurred.
         """
 
         # check inputs
@@ -286,25 +283,30 @@ class Client:
         description: str = None,
         archive_password: str = None,
     ) -> dict:
-        """Send a file to GLIMPS Detect and wait for a result.
+        """Send a file to GLIMPS Detect and wait for the result.
 
-        This function is an 'all-in-one' for sending and getting result.
-        The pull time is arbitrary set to 5 seconds, and timeout to 3 minutes.
+        Combines push and polling into a single call.
 
         Args:
-            filename (str): Fullpath of submitted file.
-            bypass_cache (bool): If True, the file is analyzed, even if a result already exists.
-            pull_time (float): The time to wait (in seconds) between each requests to get a result.
-            timeout (float): The maximum time execution of this method in seconds.
-            tags (tuple, optional): If filled, the file will be tagged with those tags.
-            description (str, optional): If filled, a description will be added to the analysis.
-            archive_password (str, optional) : If filled, the password used to extract archive
+            filename (str): Full path of the file to submit.
+            bypass_cache (bool, optional): If True, the file is analyzed even if
+                a result already exists.
+            pull_time (float, optional): Seconds to wait between polling requests.
+                Defaults to 1.0.
+            push_timeout (float, optional): Request timeout in seconds for the
+                initial push. Defaults to 30.
+            timeout (float, optional): Maximum total wait time in seconds.
+                Defaults to 180.
+            tags (tuple, optional): Tags to assign to the file.
+            description (str, optional): Description to attach to the analysis.
+            archive_password (str, optional): Password used to extract archive.
 
         Returns:
-            result (dict): The json-encoded content of a response, if any.
+            dict: Analysis result.
 
         Raises:
-            exceptions.GDetectError: An error occurs.
+            GDetectTimeoutError: The analysis did not complete within *timeout*.
+            GDetectError: An error occurred.
         """
         with open(filename, "rb") as reader:
             return self.waitfor_reader(
@@ -331,26 +333,31 @@ class Client:
         description: str = None,
         archive_password: str = None,
     ) -> dict:
-        """Send a file to GLIMPS Detect and wait for a result (using reader).
+        """Send a file to GLIMPS Detect and wait for the result (using reader).
 
-        This function is an 'all-in-one' for sending and getting result.
-        The pull time is arbitrary set to 5 seconds, and timeout to 3 minutes.
+        Combines push and polling into a single call.
 
         Args:
-            filename (str): name of submitted file.
-            reader (StreamReader): a reader for the binary
-            bypass_cache (bool): If True, the file is analyzed, even if a result already exists.
-            pull_time (float): The time to wait (in seconds) between each requests to get a result.
-            timeout (float): The maximum time execution of this method in seconds.
-            tags (tuple, optional): If filled, the file will be tagged with those tags.
-            description (str, optional): If filled, a description will be added to the analysis.
-            archive_password (str, optional) : If filled, the password used to extract archive
+            filename (str): Name of the submitted file.
+            reader (StreamReader): A readable stream providing the file content.
+            bypass_cache (bool, optional): If True, the file is analyzed even if
+                a result already exists.
+            pull_time (float, optional): Seconds to wait between polling requests.
+                Defaults to 1.
+            push_timeout (float, optional): Request timeout in seconds for the
+                initial push. Defaults to 30.
+            timeout (float, optional): Maximum total wait time in seconds.
+                Defaults to 180.
+            tags (tuple, optional): Tags to assign to the file.
+            description (str, optional): Description to attach to the analysis.
+            archive_password (str, optional): Password used to extract archive.
 
         Returns:
-            result (dict): The json-encoded content of a response, if any.
+            dict: Analysis result.
 
         Raises:
-            exceptions.GDetectError: An error occurs.
+            GDetectTimeoutError: The analysis did not complete within *timeout*.
+            GDetectError: An error occurred.
         """
         start_time = time.time()
         # push file, get uuid
@@ -374,8 +381,13 @@ class Client:
             time.sleep(pull_time)
 
     def get_status(self) -> Status:
-        """
-        Get detect profile status
+        """Get the Detect profile status.
+
+        Returns:
+            Status: Profile status including quota and cache information.
+
+        Raises:
+            GDetectError: An error occurred.
         """
         # prepare request
         path = f"{self.url}/status"
@@ -392,14 +404,16 @@ class Client:
         )
 
     def extract_url_token_view(self, resp: dict) -> str:
-        """Extract url token view from response.
+        """Extract the token view URL from an analysis response.
 
-        Raises:
-            exceptions.MissingToken: In case there is no token or no response at all.
-            exceptions.MissingResponse: In case there is no response at all.
+        Args:
+            resp (dict): Analysis result dictionary.
 
         Returns:
-            str: token view url
+            str: Token view URL.
+
+        Raises:
+            MissingTokenError: The response does not contain a token field.
         """
         token = resp.get("token", "")
         if token == "":
@@ -407,14 +421,16 @@ class Client:
         return urllib.parse.urljoin(self.base_url, f"/expert/en/analysis-redirect/{token}")
 
     def extract_expert_url(self, resp: dict) -> str:
-        """Extract expert view from response.
+        """Extract the expert analysis URL from an analysis response.
 
-        Raises:
-            exceptions.MissingToken: In case there is no token in the response.
-            exceptions.MissingResponse: In case there is no response at all.
+        Args:
+            resp (dict): Analysis result dictionary.
 
         Returns:
-            str: expert analysis view url
+            str: Expert analysis view URL.
+
+        Raises:
+            MissingSIDError: The response does not contain a sid field.
         """
         sid = resp.get("sid", "")
         if sid == "":
@@ -482,19 +498,20 @@ class Client:
             raise BadAuthenticationTokenError("bad token format")
 
     def _request(self, method: str, url: str, headers: dict = {}, timeout: float = 30, **kwargs) -> requests.Response:
-        """Process a request to URL with given method and params.
-
-        This function execute the request to the URL with `requests` library.
-        The return is wrapped inside a Response dataclass to simplify exceptions
-        handling and logging.
+        """Send an HTTP request and handle error responses.
 
         Args:
-            method (str): request type (GET, POST,...).
-            url (str): URL to join.
-            **kwargs (str): named options of requests library.
+            method (str): HTTP method (e.g. ``"get"``, ``"post"``).
+            url (str): Full URL to request.
+            headers (dict, optional): Additional HTTP headers.
+            timeout (float, optional): Request timeout in seconds. Defaults to 30.
+            **kwargs: Extra keyword arguments forwarded to :func:`requests.request`.
 
         Returns:
-            Response: a :class:`~Response` object.
+            requests.Response: The response object on success (HTTP 200).
+
+        Raises:
+            GDetectError: The server returned a non-200 status code.
         """
         # set auth token if not provided
         headers["X-Auth-Token"] = headers.get("X-Auth-Token", self.token)
@@ -516,7 +533,14 @@ HTTPExceptions = {
 
 
 def compute_exception_from_response(resp: requests.Response) -> GDetectError:
-    """Compute a GDetectError from an requests.Response"""
+    """Build a GDetectError from an HTTP error response.
+
+    Args:
+        resp (requests.Response): The failed HTTP response.
+
+    Returns:
+        GDetectError: An appropriate exception for the response status code.
+    """
     exc = HTTPExceptions.get(resp.status_code, GDetectError)
     try:
         msg = resp.json()

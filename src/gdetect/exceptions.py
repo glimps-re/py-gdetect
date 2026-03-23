@@ -1,7 +1,7 @@
-"""
-This module defines all Exceptions for GDetect.
-GDetectError is for all external calls.
-All other exceptions are for internal use.
+"""Exceptions for the GDetect client.
+
+GDetectError is the base class. Subclasses represent specific error conditions
+such as authentication failures, invalid inputs, and server errors.
 """
 
 from .consts import EXPORT_LAYOUTS, EXPORT_FORMATS
