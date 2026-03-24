@@ -4,7 +4,7 @@ import pytest
 import requests
 from click.testing import CliRunner
 from gdetect.cli import gdetect
-from .mock import mock_request, mock_request_custom, mock_csv_export
+from .mock import mock_request, mock_request_custom, mock_csv_export, make_capturing_mock
 from .test_api import TEST_FILE
 
 
@@ -189,3 +189,98 @@ def test_params(runner: CliRunner):
         "--url=http://test.test waitfor --tag=test_tag {TEST_FILE}",
     )
     assert result.exit_code == 1
+
+
+
+def test_get_with_wait(runner: CliRunner, uuid="9d488d01-23d5-4b9f-894e-c920ea732603"):
+    """Test get command with --wait option."""
+    result = runner.invoke(gdetect, f"--insecure get --wait 10 {uuid}")
+    assert result.exit_code == 0
+
+
+def test_get_without_wait(runner: CliRunner, uuid="9d488d01-23d5-4b9f-894e-c920ea732603"):
+    """Test get command without --wait option (backward compat)."""
+    result = runner.invoke(gdetect, f"--insecure get {uuid}")
+    assert result.exit_code == 0
+
+
+def test_get_with_invalid_wait_value(runner: CliRunner, uuid="9d488d01-23d5-4b9f-894e-c920ea732603"):
+    """Test get command with invalid --wait value raises error."""
+    result = runner.invoke(gdetect, f"--insecure get --wait -1 {uuid}")
+    assert result.exit_code == 1
+
+
+def test_get_with_invalid_wait_type(runner: CliRunner, uuid="9d488d01-23d5-4b9f-894e-c920ea732603"):
+    """Test get command with invalid --wait type fails at click level."""
+    result = runner.invoke(gdetect, f"--insecure get --wait abc {uuid}")
+    assert result.exit_code == 2
+
+
+def test_waitfor_with_wait(runner: CliRunner):
+    """Test waitfor command with --wait option."""
+    result = runner.invoke(gdetect, f"--insecure --no-cache waitfor --wait 10 {TEST_FILE}")
+    assert result.exit_code == 0
+
+
+def test_waitfor_without_wait(runner: CliRunner):
+    """Test waitfor command without --wait option (backward compat)."""
+    result = runner.invoke(gdetect, f"--insecure --no-cache waitfor {TEST_FILE}")
+    assert result.exit_code == 0
+
+
+
+def test_cli_get_wait_end_to_end(runner: CliRunner, monkeypatch, uuid="9d488d01-23d5-4b9f-894e-c920ea732603"):
+    """Full CLI get --wait flow: verifies wait param reaches HTTP request."""
+    capturing_mock, captured_calls = make_capturing_mock()
+    monkeypatch.setattr(requests, "request", capturing_mock)
+    result = runner.invoke(gdetect, f"--insecure get --wait 15 {uuid}")
+    assert result.exit_code == 0
+    get_calls = [c for c in captured_calls if "results" in str(c["args"])]
+    assert len(get_calls) == 1
+    params = get_calls[0]["kwargs"].get("params", {})
+    assert params.get("wait") == 15
+
+
+def test_cli_get_no_wait_param_in_request(
+    runner: CliRunner, monkeypatch, uuid="9d488d01-23d5-4b9f-894e-c920ea732603"
+):
+    """When --wait is not given, no wait param is present in HTTP request."""
+    capturing_mock, captured_calls = make_capturing_mock()
+    monkeypatch.setattr(requests, "request", capturing_mock)
+    result = runner.invoke(gdetect, f"--insecure get {uuid}")
+    assert result.exit_code == 0
+    get_calls = [c for c in captured_calls if "results" in str(c["args"])]
+    assert len(get_calls) == 1
+    params = get_calls[0]["kwargs"].get("params", {})
+    assert "wait" not in params
+
+
+def test_cli_waitfor_wait_end_to_end(runner: CliRunner, monkeypatch):
+    """Full CLI waitfor --wait flow: verifies wait param reaches HTTP request and no sleep."""
+    capturing_mock, captured_calls = make_capturing_mock()
+    monkeypatch.setattr(requests, "request", capturing_mock)
+    sleep_calls = []
+    monkeypatch.setattr("gdetect.api.time.sleep", lambda s: sleep_calls.append(s))
+    result = runner.invoke(gdetect, f"--insecure --no-cache waitfor --wait 5 {TEST_FILE}")
+    assert result.exit_code == 0
+    get_calls = [c for c in captured_calls if "results" in str(c["args"])]
+    assert len(get_calls) >= 1
+    params = get_calls[0]["kwargs"].get("params", {})
+    assert params.get("wait") == 5
+    assert len(sleep_calls) == 0
+
+
+def test_cli_waitfor_no_wait_sleeps(runner: CliRunner, monkeypatch):
+    """When --wait is not given, time.sleep is called between polls."""
+    from .mock import mock_request_analysis_in_progress
+
+    monkeypatch.setattr(requests, "request", mock_request_analysis_in_progress)
+    sleep_calls = []
+    monkeypatch.setattr("gdetect.api.time.sleep", lambda s: sleep_calls.append(s))
+    # Fake clock: returns 0 for a few calls (allowing polling + sleep), then
+    # jumps past the timeout to stop the loop.
+    timestamps = iter([0, 0, 0, 0, 200])
+    monkeypatch.setattr("gdetect.api.time.time", lambda: next(timestamps, 200))
+    result = runner.invoke(gdetect, f"--insecure --no-cache waitfor --timeout 180 {TEST_FILE}")
+    assert result.exit_code == 1
+    assert len(sleep_calls) > 0

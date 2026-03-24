@@ -26,7 +26,6 @@ from dataclasses import asdict, dataclass
 import pathlib
 import time
 import urllib.parse
-import re
 import os
 
 import requests
@@ -52,17 +51,22 @@ from .exceptions import (
     UnauthorizedAccessError,
     BadExportFormatError,
     BadLayoutError,
+    BadWaitValueError,
 )
 from .stream import StreamReader
-from .consts import GDETECT_USER_AGENT, EXPORT_LAYOUTS, EXPORT_FORMATS
+from .consts import (
+    GDETECT_USER_AGENT,
+    EXPORT_LAYOUTS,
+    EXPORT_FORMATS,
+    WAIT_MIN_VALUE,
+    WAIT_MAX_VALUE,
+    BASE_ENDPOINT,
+    UUID_PATTERN,
+    SHA256_PATTERN,
+    TOKEN_PATTERN,
+)
 
 logger = get_logger()
-
-BASE_ENDPOINT = "/api/lite/v2"
-
-UUID_PATTERN = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
-SHA256_PATTERN = re.compile(r"[0-9a-f]{64}")
-TOKEN_PATTERN = re.compile(r"[0-9a-f]{8}-[0-9a-f]{8}-[0-9a-f]{8}-[0-9a-f]{8}-[0-9a-f]{8}")
 
 
 @dataclass
@@ -246,29 +250,39 @@ class Client:
 
         return response.json()
 
-    def get_by_uuid(self, uuid: str) -> dict:
+    def get_by_uuid(self, uuid: str, wait: int = 0) -> dict:
         """Retrieve analysis result using analysis UUID.
 
         Args:
             uuid (str): UUID of the submitted analysis.
+            wait (int, optional): Server-side wait time in seconds (0-59).
+                When set, the server holds the connection for up to N seconds,
+                returning immediately if the result is ready. 0 means no
+                server-side waiting (wait param omitted).
 
         Returns:
             dict: Analysis result.
 
         Raises:
             BadUUIDError: The UUID value is invalid.
+            BadWaitValueError: The wait value is invalid.
             ResultNotFoundError: No result found for the given UUID.
             GDetectError: An error occurred.
         """
-
         # check inputs
         self._check_uuid(uuid)
+        self._check_wait(wait)
 
         # prepare request
         path = f"{self.url}/results/{uuid}"
+        params = {}
+        timeout = 30
+        if wait > 0:
+            params["wait"] = wait
+            timeout = max(timeout, wait + 10)
 
         # send request
-        response = self._request("get", path)
+        response = self._request("get", path, params=params, timeout=timeout)
 
         return response.json()
 
@@ -282,6 +296,7 @@ class Client:
         tags: tuple = (),
         description: str = None,
         archive_password: str = None,
+        wait: int = 0,
     ) -> dict:
         """Send a file to GLIMPS Detect and wait for the result.
 
@@ -292,7 +307,7 @@ class Client:
             bypass_cache (bool, optional): If True, the file is analyzed even if
                 a result already exists.
             pull_time (float, optional): Seconds to wait between polling requests.
-                Defaults to 1.0.
+                Defaults to 1.0. Ignored when *wait* is set (server handles waiting).
             push_timeout (float, optional): Request timeout in seconds for the
                 initial push. Defaults to 30.
             timeout (float, optional): Maximum total wait time in seconds.
@@ -300,12 +315,17 @@ class Client:
             tags (tuple, optional): Tags to assign to the file.
             description (str, optional): Description to attach to the analysis.
             archive_password (str, optional): Password used to extract archive.
+            wait (int, optional): Server-side wait time in seconds (0-59).
+                When set, the server holds each polling connection for up to N
+                seconds, reducing round-trips. Defaults to 0 (client-side
+                sleep-based polling).
 
         Returns:
             dict: Analysis result.
 
         Raises:
             GDetectTimeoutError: The analysis did not complete within *timeout*.
+            BadWaitValueError: The wait value is invalid.
             GDetectError: An error occurred.
         """
         with open(filename, "rb") as reader:
@@ -319,6 +339,7 @@ class Client:
                 tags,
                 description,
                 archive_password,
+                wait,
             )
 
     def waitfor_reader(
@@ -332,6 +353,7 @@ class Client:
         tags: tuple = (),
         description: str = None,
         archive_password: str = None,
+        wait: int = 0,
     ) -> dict:
         """Send a file to GLIMPS Detect and wait for the result (using reader).
 
@@ -343,7 +365,7 @@ class Client:
             bypass_cache (bool, optional): If True, the file is analyzed even if
                 a result already exists.
             pull_time (float, optional): Seconds to wait between polling requests.
-                Defaults to 1.
+                Defaults to 1. Ignored when *wait* is set (server handles waiting).
             push_timeout (float, optional): Request timeout in seconds for the
                 initial push. Defaults to 30.
             timeout (float, optional): Maximum total wait time in seconds.
@@ -351,14 +373,20 @@ class Client:
             tags (tuple, optional): Tags to assign to the file.
             description (str, optional): Description to attach to the analysis.
             archive_password (str, optional): Password used to extract archive.
+            wait (int, optional): Server-side wait time in seconds (0-59).
+                When set, the server holds each polling connection for up to N
+                seconds, reducing round-trips. Defaults to 0 (client-side
+                sleep-based polling).
 
         Returns:
             dict: Analysis result.
 
         Raises:
             GDetectTimeoutError: The analysis did not complete within *timeout*.
+            BadWaitValueError: The wait value is invalid.
             GDetectError: An error occurred.
         """
+        self._check_wait(wait)
         start_time = time.time()
         # push file, get uuid
         uuid = self.push_reader(
@@ -373,12 +401,14 @@ class Client:
 
         # get result
         while True:
-            result = self.get_by_uuid(uuid)
+            result = self.get_by_uuid(uuid, wait=wait)
             if result["done"]:
                 return result
             if time.time() - start_time > timeout:
                 raise GDetectTimeoutError(f"analysis took more than {timeout}s")
-            time.sleep(pull_time)
+            # Only sleep if not using server-side waiting
+            if wait == 0:
+                time.sleep(pull_time)
 
     def get_status(self) -> Status:
         """Get the Detect profile status.
@@ -496,6 +526,22 @@ class Client:
             raise BadAuthenticationTokenError("token must a be string")
         if not TOKEN_PATTERN.match(self.token):
             raise BadAuthenticationTokenError("bad token format")
+
+    def _check_wait(self, wait):
+        """Validate the wait parameter.
+
+        Args:
+            wait: Must be an integer where WAIT_MIN_VALUE <= wait <= WAIT_MAX_VALUE.
+
+        Raises:
+            BadWaitValueError: If wait is not a valid integer in range.
+        """
+        if type(wait) is not int:
+            raise BadWaitValueError(f"wait must be an integer, got {type(wait).__name__}")
+        if wait < WAIT_MIN_VALUE or wait > WAIT_MAX_VALUE:
+            raise BadWaitValueError(
+                f"wait must be between {WAIT_MIN_VALUE} and {WAIT_MAX_VALUE} inclusive, got {wait}"
+            )
 
     def _request(self, method: str, url: str, headers: dict = {}, timeout: float = 30, **kwargs) -> requests.Response:
         """Send an HTTP request and handle error responses.

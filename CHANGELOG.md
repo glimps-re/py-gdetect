@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.9.1
+
+### Added
+
+* wait option for get result by uuid
+
+## Changed
+
+* update doc string
+
 ## v0.9.0
 
 ### Changed

@@ -164,10 +164,16 @@ def send(
 @click.pass_obj
 @click.argument("uuid")
 @click.option("--retrieve-urls", is_flag=True, default=False, help="retrieve urls")
+@click.option(
+    "--wait",
+    type=int,
+    default=0,
+    help="Server-side wait in seconds (0-59). Server holds connection until result is ready or timeout.",
+)
 @catch_exceptions
-def get(obj: GDetectContext = None, uuid: str = "", retrieve_urls: bool = False):
+def get(obj: GDetectContext = None, uuid: str = "", retrieve_urls: bool = False, wait: int = 0):
     """get result for given uuid."""
-    result = obj.client.get_by_uuid(uuid)
+    result = obj.client.get_by_uuid(uuid, wait=wait)
     rich.print_json(data=result)
     if retrieve_urls:
         print_urls(result)
@@ -194,6 +200,12 @@ def search(obj: GDetectContext = None, sha256: str = "", retrieve_urls: bool = F
 @click.option("-t", "--tag", multiple=True, help="tags to assign to the file.")
 @click.option("-d", "--description", help="description of the file.")
 @click.option("--retrieve-urls", is_flag=True, help="retrieve urls")
+@click.option(
+    "--wait",
+    type=int,
+    default=0,
+    help="Server-side wait in seconds (0-59). Reduces polling round-trips by having the server hold the connection.",
+)
 @catch_exceptions
 def waitfor(
     obj: GDetectContext = None,
@@ -203,6 +215,7 @@ def waitfor(
     tag: Optional[List[str]] = None,
     description: str = "",
     retrieve_urls: bool = False,
+    wait: int = 0,
 ):
     """send a file and wait for the result."""
     result = obj.client.waitfor(
@@ -213,6 +226,7 @@ def waitfor(
         tags=tag,
         description=description,
         archive_password=obj.archive_password,
+        wait=wait,
     )
     rich.print_json(data=result)
     if retrieve_urls:

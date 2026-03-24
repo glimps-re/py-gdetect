@@ -4,6 +4,7 @@ import pytest
 import requests
 from gdetect import exceptions
 from gdetect.api import Client
+from gdetect.consts import WAIT_MIN_VALUE, WAIT_MAX_VALUE
 from .mock import (
     mock_request_analysis_in_progress,
     mock_request_custom,
@@ -14,6 +15,7 @@ from .mock import (
     mock_request_invalid_file,
     mock_request_502,
     mock_csv_export,
+    make_capturing_mock,
 )
 
 
@@ -392,3 +394,184 @@ def test_export_server_error(monkeypatch: pytest.MonkeyPatch):
     client = get_api_client()
     with pytest.raises(exceptions.GDetectError):
         client.export_result(uuid, format="csv", layout="fr")
+
+
+
+def test_check_wait_none_raises():
+    """None raises BadWaitValueError."""
+    client = get_api_client()
+    with pytest.raises(exceptions.BadWaitValueError):
+        client._check_wait(None)
+
+
+def test_check_wait_valid_values():
+    """Integer values from WAIT_MIN_VALUE to WAIT_MAX_VALUE inclusive are valid."""
+    client = get_api_client()
+    mid = (WAIT_MIN_VALUE + WAIT_MAX_VALUE) // 2
+    for value in [WAIT_MIN_VALUE, mid, WAIT_MAX_VALUE]:
+        client._check_wait(value)
+
+
+def test_check_wait_zero_valid():
+    """Zero is a valid wait value."""
+    client = get_api_client()
+    client._check_wait(0)
+
+
+def test_check_wait_negative_raises():
+    """Negative values raise BadWaitValueError."""
+    client = get_api_client()
+    with pytest.raises(exceptions.BadWaitValueError):
+        client._check_wait(-1)
+
+
+def test_check_wait_above_max_raises():
+    """WAIT_MAX_VALUE + 1 raises BadWaitValueError."""
+    client = get_api_client()
+    with pytest.raises(exceptions.BadWaitValueError):
+        client._check_wait(WAIT_MAX_VALUE + 1)
+
+
+def test_check_wait_far_above_max_raises():
+    """Values far above WAIT_MAX_VALUE raise BadWaitValueError."""
+    client = get_api_client()
+    with pytest.raises(exceptions.BadWaitValueError):
+        client._check_wait(WAIT_MAX_VALUE + 100)
+
+
+def test_check_wait_float_raises():
+    """Float raises BadWaitValueError."""
+    client = get_api_client()
+    with pytest.raises(exceptions.BadWaitValueError):
+        client._check_wait(1.5)
+
+
+def test_check_wait_string_raises():
+    """String raises BadWaitValueError."""
+    client = get_api_client()
+    with pytest.raises(exceptions.BadWaitValueError):
+        client._check_wait("10")
+
+
+def test_check_wait_bool_raises():
+    """Bool raises BadWaitValueError (bool is a subclass of int in Python)."""
+    client = get_api_client()
+    with pytest.raises(exceptions.BadWaitValueError):
+        client._check_wait(True)
+    with pytest.raises(exceptions.BadWaitValueError):
+        client._check_wait(False)
+
+
+
+def test_get_by_uuid_with_wait(monkeypatch: pytest.MonkeyPatch):
+    """When wait is set, the wait param is passed in the HTTP request."""
+    capturing_mock, captured_calls = make_capturing_mock()
+    monkeypatch.setattr(requests, "request", capturing_mock)
+    client = get_api_client()
+    uuid = "eff8b042-3e70-4ea3-8f83-f9e67c217d3f"
+    client.get_by_uuid(uuid, wait=10)
+    assert len(captured_calls) == 1
+    params = captured_calls[0]["kwargs"].get("params", {})
+    assert params.get("wait") == 10
+
+
+def test_get_by_uuid_without_wait(monkeypatch: pytest.MonkeyPatch):
+    """When wait is 0 (default), no wait param is sent in the HTTP request."""
+    capturing_mock, captured_calls = make_capturing_mock()
+    monkeypatch.setattr(requests, "request", capturing_mock)
+    client = get_api_client()
+    uuid = "eff8b042-3e70-4ea3-8f83-f9e67c217d3f"
+    client.get_by_uuid(uuid)
+    assert len(captured_calls) == 1
+    params = captured_calls[0]["kwargs"].get("params", {})
+    assert "wait" not in params
+
+
+def test_get_by_uuid_with_invalid_wait(monkeypatch: pytest.MonkeyPatch):
+    """Invalid wait raises BadWaitValueError before making HTTP request."""
+    capturing_mock, captured_calls = make_capturing_mock()
+    monkeypatch.setattr(requests, "request", capturing_mock)
+    client = get_api_client()
+    uuid = "eff8b042-3e70-4ea3-8f83-f9e67c217d3f"
+    with pytest.raises(exceptions.BadWaitValueError):
+        client.get_by_uuid(uuid, wait=-1)
+    assert len(captured_calls) == 0
+
+
+def test_get_by_uuid_timeout_adjusted_for_wait(monkeypatch: pytest.MonkeyPatch):
+    """When wait is set, HTTP timeout is at least wait + 10."""
+    capturing_mock, captured_calls = make_capturing_mock()
+    monkeypatch.setattr(requests, "request", capturing_mock)
+    client = get_api_client()
+    uuid = "eff8b042-3e70-4ea3-8f83-f9e67c217d3f"
+    client.get_by_uuid(uuid, wait=25)
+    timeout = captured_calls[0]["kwargs"].get("timeout")
+    assert timeout >= 25 + 10
+
+
+
+def test_waitfor_with_wait_param(monkeypatch: pytest.MonkeyPatch):
+    """When wait is set, get_by_uuid receives wait and time.sleep is not called."""
+    capturing_mock, captured_calls = make_capturing_mock()
+    monkeypatch.setattr(requests, "request", capturing_mock)
+    sleep_calls = []
+    monkeypatch.setattr("gdetect.api.time.sleep", lambda s: sleep_calls.append(s))
+    client = get_api_client()
+    result = client.waitfor(TEST_FILE, wait=10)
+    assert result["done"] is True
+    # sleep must NOT be called when wait is set
+    assert len(sleep_calls) == 0
+    # The get_by_uuid call (second request) must include the wait param
+    get_calls = [c for c in captured_calls if "results" in str(c["args"])]
+    assert len(get_calls) >= 1
+    params = get_calls[0]["kwargs"].get("params", {})
+    assert params.get("wait") == 10
+
+
+def test_waitfor_without_wait_param(monkeypatch: pytest.MonkeyPatch):
+    """When wait is 0 (default), time.sleep is called between polls."""
+    monkeypatch.setattr(requests, "request", mock_request_analysis_in_progress)
+    sleep_calls = []
+    monkeypatch.setattr("gdetect.api.time.sleep", lambda s: sleep_calls.append(s))
+    client = get_api_client()
+    with pytest.raises(exceptions.GDetectTimeoutError):
+        client.waitfor(TEST_FILE, pull_time=0.05, timeout=0.1)
+    # sleep MUST be called when wait is 0
+    assert len(sleep_calls) > 0
+
+
+def test_waitfor_reader_with_wait_param(monkeypatch: pytest.MonkeyPatch):
+    """waitfor_reader passes wait to get_by_uuid and skips sleep."""
+    capturing_mock, captured_calls = make_capturing_mock()
+    monkeypatch.setattr(requests, "request", capturing_mock)
+    sleep_calls = []
+    monkeypatch.setattr("gdetect.api.time.sleep", lambda s: sleep_calls.append(s))
+    client = get_api_client()
+    import urllib
+    with open(urllib.__file__, "rb") as f:
+        result = client.waitfor_reader("test.py", f, wait=5)
+    assert result["done"] is True
+    assert len(sleep_calls) == 0
+    get_calls = [c for c in captured_calls if "results" in str(c["args"])]
+    assert len(get_calls) >= 1
+    params = get_calls[0]["kwargs"].get("params", {})
+    assert params.get("wait") == 5
+
+
+def test_waitfor_with_wait_timeout(monkeypatch: pytest.MonkeyPatch):
+    """Overall timeout still applies even when wait is set."""
+    monkeypatch.setattr(requests, "request", mock_request_analysis_in_progress)
+    monkeypatch.setattr("gdetect.api.time.sleep", lambda s: None)
+    client = get_api_client()
+    with pytest.raises(exceptions.GDetectTimeoutError):
+        client.waitfor(TEST_FILE, wait=1, timeout=0.0)
+
+
+def test_waitfor_with_wait_invalid(monkeypatch: pytest.MonkeyPatch):
+    """Invalid wait value raises BadWaitValueError before any request."""
+    capturing_mock, captured_calls = make_capturing_mock()
+    monkeypatch.setattr(requests, "request", capturing_mock)
+    client = get_api_client()
+    with pytest.raises(exceptions.BadWaitValueError):
+        client.waitfor(TEST_FILE, wait=-1)
+    assert len(captured_calls) == 0
