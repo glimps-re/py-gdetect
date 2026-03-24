@@ -167,3 +167,18 @@ def mock_request_custom(status_code: int, json: Any, ok: bool):
         return m
 
     return inner
+
+
+def make_capturing_mock():
+    """Return a (mock_fn, captured_calls) pair.
+
+    The mock function records every call in *captured_calls* as a dict with
+    keys ``args`` and ``kwargs``, then returns a successful MockRequest.
+    """
+    captured_calls = []
+
+    def capturing_mock(*args, **kwargs):
+        captured_calls.append({"args": args, "kwargs": kwargs})
+        return MockRequest()
+
+    return capturing_mock, captured_calls

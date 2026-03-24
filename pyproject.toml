@@ -1,6 +1,6 @@
 [project]
 name = "gdetect"
-version = "0.9.0"
+version = "0.9.1"
 authors = [
   { name="GLIMPS dev core team", email="contact@glimps.re" },
 ]

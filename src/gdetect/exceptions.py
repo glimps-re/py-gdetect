@@ -79,3 +79,7 @@ class BadExportFormatError(GDetectError):
 
 class BadLayoutError(GDetectError):
     __doc__ = f"Bad layout value (must be one of {EXPORT_LAYOUTS})"
+
+
+class BadWaitValueError(GDetectError):
+    """Bad wait value (must be an integer between 0 and 59 inclusive)"""
